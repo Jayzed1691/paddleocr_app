@@ -1,0 +1,29 @@
+PaddleOCR Sample Document
+
+This is a sample text document for testing the PaddleOCR application.
+
+Key Features:
+- Text recognition in multiple languages
+- Support for PDF, DOCX, and TXT files
+- Configurable detection and recognition parameters
+- Multiple output formats (Markdown, JSON, HTML, Plain Text)
+
+Technical Specifications:
+The application uses PaddleOCR version 3.3.0 with PaddlePaddle 3.0.0-beta1.
+It supports both CPU and GPU inference modes.
+
+Sample Numbers and Special Characters:
+Phone: +1-234-567-8900
+Email: test@example.com
+Date: 2025-10-23
+Price: $99.99
+
+This document tests various text recognition capabilities including:
+1. Regular text paragraphs
+2. Numbered and bulleted lists
+3. Special characters and symbols
+4. Mixed alphanumeric content
+5. Different formatting styles
+
+End of Sample Document
+

@@ -1,0 +1,17 @@
+# Core OCR dependencies (CPU version for compatibility)
+paddlepaddle==3.0.0b1
+paddleocr
+
+# Streamlit for web interface
+streamlit>=1.28.0
+
+# Document processing
+pdf2image>=1.16.0
+PyPDF2>=3.0.0
+python-docx>=1.1.0
+Pillow>=10.0.0
+
+# Additional utilities
+numpy>=1.24.0
+opencv-python>=4.8.0
+
