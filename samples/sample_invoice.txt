@@ -1,0 +1,38 @@
+INVOICE
+
+Invoice #: INV-2024-001
+Date: January 15, 2024
+
+BILL TO:
+Acme Corporation
+123 Business Street
+New York, NY 10001
+USA
+
+SHIP TO:
+Acme Corporation
+Warehouse Department
+456 Industrial Blvd
+Newark, NJ 07102
+USA
+
+DESCRIPTION                  QTY    UNIT PRICE    TOTAL
+---------------------------------------------------------
+Widget Type A                 50      $10.00      $500.00
+Widget Type B                 30      $15.00      $450.00
+Professional Services         10      $50.00      $500.00
+Shipping and Handling          1      $75.00       $75.00
+---------------------------------------------------------
+
+                           SUBTOTAL:           $1,525.00
+                           TAX (8%):             $122.00
+                           TOTAL:              $1,647.00
+
+Payment Terms: Net 30
+Due Date: February 14, 2024
+
+Thank you for your business!
+
+For questions about this invoice, please contact:
+accounting@example.com
+Phone: (555) 123-4567

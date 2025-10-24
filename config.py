@@ -98,3 +98,54 @@ OCR_REINIT_PARAMS = {
     'rec_model_dir', 'cls_model_dir'
 }
 
+# OCR Settings Presets
+OCR_PRESETS = {
+    'Fast': {
+        'name': 'Fast Processing',
+        'description': 'Optimized for speed with acceptable accuracy',
+        'config': {
+            'use_textline_orientation': False,
+            'text_det_thresh': 0.4,
+            'text_det_box_thresh': 0.7,
+            'text_rec_score_thresh': 0.3,
+            'text_recognition_batch_size': 12,
+            'use_doc_orientation_classify': False,
+            'use_doc_unwarping': False,
+            'return_word_box': False
+        }
+    },
+    'Balanced': {
+        'name': 'Balanced (Recommended)',
+        'description': 'Good balance between speed and accuracy',
+        'config': {
+            'use_textline_orientation': True,
+            'text_det_thresh': 0.3,
+            'text_det_box_thresh': 0.6,
+            'text_rec_score_thresh': 0.5,
+            'text_recognition_batch_size': 6,
+            'use_doc_orientation_classify': False,
+            'use_doc_unwarping': False,
+            'return_word_box': False
+        }
+    },
+    'High Quality': {
+        'name': 'High Quality',
+        'description': 'Maximum accuracy, slower processing',
+        'config': {
+            'use_textline_orientation': True,
+            'text_det_thresh': 0.2,
+            'text_det_box_thresh': 0.5,
+            'text_rec_score_thresh': 0.6,
+            'text_recognition_batch_size': 3,
+            'use_doc_orientation_classify': True,
+            'use_doc_unwarping': True,
+            'return_word_box': True
+        }
+    },
+    'Custom': {
+        'name': 'Custom Settings',
+        'description': 'Manually configure all parameters',
+        'config': {}  # Will use user-defined settings
+    }
+}
+

@@ -1,0 +1,32 @@
+Multi-Language Sample Document
+
+English:
+Welcome to the PaddleOCR application. This is a sample document for testing optical character recognition.
+
+Spanish:
+Bienvenido a la aplicación PaddleOCR. Este es un documento de muestra para probar el reconocimiento óptico de caracteres.
+
+French:
+Bienvenue dans l'application PaddleOCR. Ceci est un document d'exemple pour tester la reconnaissance optique de caractères.
+
+German:
+Willkommen bei der PaddleOCR-Anwendung. Dies ist ein Beispieldokument zum Testen der optischen Zeichenerkennung.
+
+Chinese (Simplified):
+欢迎使用PaddleOCR应用程序。这是一个用于测试光学字符识别的示例文档。
+
+Japanese:
+PaddleOCRアプリケーションへようこそ。これは、光学式文字認識をテストするためのサンプルドキュメントです。
+
+Arabic:
+مرحبًا بك في تطبيق PaddleOCR. هذا مستند نموذجي لاختبار التعرف البصري على الأحرف.
+
+Russian:
+Добро пожаловать в приложение PaddleOCR. Это образец документа для тестирования оптического распознавания символов.
+
+Numbers and Special Characters:
+1234567890
+!@#$%^&*()
+Price: $99.99
+Date: 2024-01-15
+Email: test@example.com
