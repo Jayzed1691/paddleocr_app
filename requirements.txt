@@ -2,14 +2,29 @@
 paddlepaddle==3.0.0b1
 paddleocr
 
+# Table recognition
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Data processing for tables
+pandas>=2.0.0
+openpyxl>=3.1.0  # Excel support
+
 # Streamlit for web interface
 streamlit>=1.28.0
+
+# REST API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+pydantic>=2.0.0
 
 # Document processing
 pdf2image>=1.16.0
 PyPDF2>=3.0.0
 python-docx>=1.1.0
 Pillow>=10.0.0
+reportlab>=4.0.0  # PDF generation
 
 # Additional utilities
 numpy>=1.24.0
@@ -19,10 +34,27 @@ opencv-python>=4.8.0
 python-magic>=0.4.27
 python-magic-bin>=0.4.14; platform_system == "Windows"  # Windows binary
 
+# Database
+sqlalchemy>=2.0.0
+
+# Rate limiting and security
+slowapi>=0.1.9
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Cloud storage (optional)
+boto3>=1.28.0  # AWS S3
+# google-cloud-storage>=2.10.0  # Uncomment for GCS support
+
+# Monitoring
+prometheus-client>=0.18.0
+
 # Testing dependencies
 pytest>=7.4.0
 pytest-cov>=4.1.0
 pytest-mock>=3.11.1
+pytest-asyncio>=0.21.0
+httpx>=0.25.0  # For FastAPI testing
 
 # Code quality tools
 black>=23.7.0
