@@ -3,12 +3,17 @@ PaddleOCR Engine wrapper with full feature support
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import List, Dict, Any, Union, Optional
 from PIL import Image
 import numpy as np
 
 from paddleocr import PaddleOCR
+from config import OCR_REINIT_PARAMS
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class OCREngine:
@@ -19,60 +24,99 @@ class OCREngine:
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize OCR Engine
-        
+
         Args:
             config: Configuration dictionary for PaddleOCR
         """
         self.config = config or {}
         self.ocr = None
+        self._last_init_config = {}
         self._initialize_ocr()
-    
+
     def _initialize_ocr(self):
         """Initialize PaddleOCR instance with configuration"""
         # Default configuration for PaddleOCR 3.x
         default_config = {
             'lang': 'en',
+            'show_log': False,
         }
-        
+
         # Merge with user config
         final_config = {**default_config, **self.config}
-        
-        # Initialize PaddleOCR
-        self.ocr = PaddleOCR(**final_config)
-    
+
+        try:
+            logger.info(f"Initializing PaddleOCR with config: {final_config}")
+            # Initialize PaddleOCR
+            self.ocr = PaddleOCR(**final_config)
+            self._last_init_config = final_config.copy()
+            logger.info("PaddleOCR initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize PaddleOCR: {str(e)}")
+            raise RuntimeError(f"Failed to initialize OCR engine: {str(e)}")
+
     def update_config(self, new_config: Dict[str, Any]):
         """
-        Update OCR configuration and reinitialize
-        
+        Update OCR configuration and reinitialize only if necessary
+
         Args:
             new_config: New configuration parameters
         """
+        # Check if any critical parameters have changed
+        needs_reinit = False
+        for param in OCR_REINIT_PARAMS:
+            if param in new_config and new_config.get(param) != self._last_init_config.get(param):
+                needs_reinit = True
+                logger.info(f"Parameter '{param}' changed, reinitialization required")
+                break
+
+        # Update config
+        old_config = self.config.copy()
         self.config.update(new_config)
-        self._initialize_ocr()
+
+        # Only reinitialize if necessary
+        if needs_reinit:
+            logger.info("Reinitializing OCR engine due to config changes")
+            self._initialize_ocr()
+        else:
+            logger.info("Config updated without reinitialization (runtime parameters only)")
     
     def process_image(self, image: Union[str, Path, Image.Image, np.ndarray]) -> List[Any]:
         """
         Process a single image with OCR
-        
+
         Args:
             image: Image path, PIL Image, or numpy array
-            
+
         Returns:
             OCR results from PaddleOCR
         """
-        if isinstance(image, (str, Path)):
-            image_input = str(image)
-        elif isinstance(image, Image.Image):
-            # Convert PIL Image to numpy array
-            image_input = np.array(image)
-        elif isinstance(image, np.ndarray):
-            image_input = image
-        else:
-            raise ValueError(f"Unsupported image type: {type(image)}")
-        
-        # Run OCR
-        result = self.ocr.ocr(image_input, cls=self.config.get('use_angle_cls', True))
-        return result
+        try:
+            if isinstance(image, (str, Path)):
+                image_input = str(image)
+                logger.info(f"Processing image from path: {image_input}")
+            elif isinstance(image, Image.Image):
+                # Convert PIL Image to numpy array
+                image_input = np.array(image)
+                logger.info(f"Processing PIL Image: {image.size}")
+            elif isinstance(image, np.ndarray):
+                image_input = image
+                logger.info(f"Processing numpy array: {image.shape}")
+            else:
+                raise ValueError(f"Unsupported image type: {type(image)}")
+
+            # Run OCR
+            result = self.ocr.ocr(image_input, cls=self.config.get('use_angle_cls', True))
+
+            if result is None or (isinstance(result, list) and len(result) == 0):
+                logger.warning("OCR returned no results")
+                return [[]]  # Return empty result structure
+
+            logger.info(f"OCR completed successfully, found {len(result[0]) if result[0] else 0} text blocks")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error during OCR processing: {str(e)}")
+            raise RuntimeError(f"OCR processing failed: {str(e)}")
     
     def process_images(self, images: List[Union[str, Path, Image.Image, np.ndarray]]) -> List[List[Any]]:
         """

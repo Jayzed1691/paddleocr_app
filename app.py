@@ -6,32 +6,53 @@ Complete OCR solution for PDF, DOCX, and TXT files
 import streamlit as st
 import tempfile
 import shutil
+import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import time
+import hashlib
 
 from ocr_engine import OCREngine
 from document_processor import DocumentProcessor
+from logger_config import setup_logging
+from utils import validate_file, sanitize_filename, format_file_size
 from config import (
-    SUPPORTED_FORMATS, 
-    LANGUAGE_OPTIONS, 
+    SUPPORTED_FORMATS,
+    LANGUAGE_OPTIONS,
     OUTPUT_FORMATS,
     DEVICE_OPTIONS,
     PRECISION_OPTIONS,
-    MAX_FILE_SIZE_MB
+    MAX_FILE_SIZE_MB,
+    TEXTAREA_HEIGHT
 )
+
+# Setup logging
+setup_logging(log_level='INFO', console_output=False)  # Disable console to avoid Streamlit conflicts
+logger = logging.getLogger(__name__)
 
 
 def initialize_session_state():
     """Initialize Streamlit session state variables"""
     if 'ocr_results' not in st.session_state:
         st.session_state.ocr_results = None
-    if 'processed_images' not in st.session_state:
-        st.session_state.processed_images = None
     if 'ocr_engine' not in st.session_state:
         st.session_state.ocr_engine = None
     if 'processing_complete' not in st.session_state:
         st.session_state.processing_complete = False
+    if 'file_metadata' not in st.session_state:
+        st.session_state.file_metadata = {}
+    if 'preview_images' not in st.session_state:
+        st.session_state.preview_images = []
+
+
+def clear_results():
+    """Clear all processing results and reset state"""
+    logger.info("Clearing results and resetting state")
+    st.session_state.ocr_results = None
+    st.session_state.processing_complete = False
+    st.session_state.file_metadata = {}
+    st.session_state.preview_images = []
+    st.rerun()
 
 
 def create_sidebar():
@@ -130,70 +151,148 @@ def create_sidebar():
 
 def process_uploaded_files(uploaded_files: List, config: dict, temp_dir: Path):
     """Process uploaded files with OCR"""
-    
+
+    logger.info(f"Starting to process {len(uploaded_files)} file(s)")
+
     # Initialize processors
     doc_processor = DocumentProcessor()
-    
+
     # Initialize or update OCR engine
     if st.session_state.ocr_engine is None:
         with st.spinner("Initializing OCR engine..."):
-            st.session_state.ocr_engine = OCREngine(config)
+            try:
+                st.session_state.ocr_engine = OCREngine(config)
+                logger.info("OCR engine initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize OCR engine: {e}")
+                st.error(f"Failed to initialize OCR engine: {str(e)}")
+                return [], {}
     else:
         with st.spinner("Updating OCR configuration..."):
-            st.session_state.ocr_engine.update_config(config)
-    
+            try:
+                st.session_state.ocr_engine.update_config(config)
+                logger.info("OCR configuration updated")
+            except Exception as e:
+                logger.error(f"Failed to update OCR configuration: {e}")
+                st.error(f"Failed to update OCR configuration: {str(e)}")
+                return [], {}
+
     ocr_engine = st.session_state.ocr_engine
-    
+
     all_results = []
-    all_images = []
-    
+    file_metadata = {}
+
     progress_bar = st.progress(0)
     status_text = st.empty()
-    
+    detail_text = st.empty()
+
     total_files = len(uploaded_files)
-    
+    total_pages = 0
+
     for file_idx, uploaded_file in enumerate(uploaded_files):
-        # Save uploaded file temporarily
-        file_path = temp_dir / uploaded_file.name
+        file_start_time = time.time()
+
+        # Sanitize filename
+        safe_filename = sanitize_filename(uploaded_file.name)
+        file_path = temp_dir / safe_filename
+
+        # Validate file
         with open(file_path, 'wb') as f:
             f.write(uploaded_file.getbuffer())
-        
-        status_text.text(f"Processing {uploaded_file.name}...")
-        
+
+        is_valid, error_msg = validate_file(file_path, uploaded_file)
+        if not is_valid:
+            logger.warning(f"File validation failed for {uploaded_file.name}: {error_msg}")
+            st.error(f"❌ {uploaded_file.name}: {error_msg}")
+            continue
+
+        status_text.markdown(f"**Processing file {file_idx + 1}/{total_files}:** `{uploaded_file.name}`")
+        detail_text.text(f"Size: {format_file_size(uploaded_file.size)}")
+
         # Convert document to images
         try:
+            logger.info(f"Converting document to images: {uploaded_file.name}")
             images = doc_processor.process_file(file_path)
-            all_images.extend(images)
-            
+            num_pages = len(images)
+            total_pages += num_pages
+
+            logger.info(f"Document converted to {num_pages} image(s)")
+
+            # Store first image for preview (thumbnail only, not full size)
+            if images and file_idx == 0:  # Only store preview for first file
+                preview_img = images[0].copy()
+                preview_img.thumbnail((200, 200))  # Create thumbnail
+                st.session_state.preview_images = [preview_img]
+
             # Process each image with OCR
+            page_results = []
             for img_idx, image in enumerate(images):
-                status_text.text(
-                    f"Processing {uploaded_file.name} - Page {img_idx + 1}/{len(images)}"
+                status_text.markdown(
+                    f"**Processing file {file_idx + 1}/{total_files}:** `{uploaded_file.name}`"
                 )
-                result = ocr_engine.process_image(image)
-                all_results.append(result)
-            
+                detail_text.text(
+                    f"Page {img_idx + 1}/{num_pages} | Total pages processed: {total_pages}"
+                )
+
+                try:
+                    result = ocr_engine.process_image(image)
+                    page_results.append(result)
+                    all_results.append(result)
+                except Exception as e:
+                    logger.error(f"OCR failed for page {img_idx + 1} of {uploaded_file.name}: {e}")
+                    st.warning(f"⚠️ Failed to process page {img_idx + 1} of {uploaded_file.name}")
+                    page_results.append([[]])  # Empty result for failed page
+                    all_results.append([[]])
+
+            # Store metadata
+            file_metadata[uploaded_file.name] = {
+                'size': uploaded_file.size,
+                'pages': num_pages,
+                'processing_time': time.time() - file_start_time,
+                'results_count': len(page_results)
+            }
+
+            logger.info(f"Successfully processed {uploaded_file.name} in {time.time() - file_start_time:.2f}s")
+
         except Exception as e:
-            st.error(f"Error processing {uploaded_file.name}: {str(e)}")
+            logger.error(f"Error processing {uploaded_file.name}: {e}", exc_info=True)
+            st.error(f"❌ Error processing {uploaded_file.name}: {str(e)}")
             continue
-        
+
         # Update progress
         progress_bar.progress((file_idx + 1) / total_files)
-    
-    status_text.text("Processing complete!")
+
+    status_text.markdown("**✅ Processing complete!**")
+    detail_text.text(f"Total files: {len(file_metadata)} | Total pages: {total_pages}")
+    time.sleep(1)  # Brief pause to show completion
     progress_bar.empty()
-    
-    return all_results, all_images
+    status_text.empty()
+    detail_text.empty()
+
+    logger.info(f"Processing complete. Processed {len(file_metadata)} files, {total_pages} pages")
+
+    return all_results, file_metadata
+
+
+def create_download_button(label: str, data: str, filename: str, mime_type: str):
+    """Helper function to create download button"""
+    st.download_button(
+        label=f"📥 {label}",
+        data=data,
+        file_name=filename,
+        mime=mime_type,
+        use_container_width=True
+    )
 
 
 def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str):
     """Display OCR results in selected format"""
-    
+
     st.subheader("📊 OCR Results")
-    
+
     # Display statistics
     stats = ocr_engine.get_statistics(ocr_results)
-    
+
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Pages", stats['total_pages'])
@@ -203,68 +302,80 @@ def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str
         st.metric("Characters", stats['total_characters'])
     with col4:
         st.metric("Avg Confidence", f"{stats['average_confidence']:.2%}")
-    
+
+    # Display file metadata if available
+    if st.session_state.file_metadata:
+        with st.expander("📋 File Processing Details"):
+            for filename, metadata in st.session_state.file_metadata.items():
+                st.markdown(f"**{filename}**")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.text(f"Size: {format_file_size(metadata['size'])}")
+                with col2:
+                    st.text(f"Pages: {metadata['pages']}")
+                with col3:
+                    st.text(f"Time: {metadata['processing_time']:.2f}s")
+                st.divider()
+
     st.divider()
-    
-    # Display results in selected format
-    if output_format == "Markdown":
-        markdown_text = ocr_engine.format_as_markdown(ocr_results, page_numbers=True)
-        st.markdown("### Markdown Output")
-        st.text_area("Markdown", markdown_text, height=400)
-        
+
+    # Format mappings
+    format_config = {
+        "Markdown": {
+            "title": "Markdown Output",
+            "formatter": lambda: ocr_engine.format_as_markdown(ocr_results, page_numbers=True),
+            "display": lambda text: st.text_area("Markdown", text, height=TEXTAREA_HEIGHT),
+            "filename": "ocr_results.md",
+            "mime": "text/markdown",
+            "download_label": "Download Markdown"
+        },
+        "JSON": {
+            "title": "JSON Output",
+            "formatter": lambda: ocr_engine.format_as_json(ocr_results),
+            "display": lambda text: st.json(text),
+            "filename": "ocr_results.json",
+            "mime": "application/json",
+            "download_label": "Download JSON"
+        },
+        "Text": {
+            "title": "Plain Text Output",
+            "formatter": lambda: ocr_engine.format_as_markdown(ocr_results, page_numbers=False),
+            "display": lambda text: st.text_area("Text", text, height=TEXTAREA_HEIGHT),
+            "filename": "ocr_results.txt",
+            "mime": "text/plain",
+            "download_label": "Download Text"
+        },
+        "HTML": {
+            "title": "HTML Output",
+            "formatter": lambda: ocr_engine.format_as_html(ocr_results),
+            "display": lambda text: st.code(text, language="html"),
+            "filename": "ocr_results.html",
+            "mime": "text/html",
+            "download_label": "Download HTML"
+        }
+    }
+
+    # Get configuration for selected format
+    config = format_config.get(output_format)
+    if config:
+        st.markdown(f"### {config['title']}")
+        formatted_text = config['formatter']()
+        config['display'](formatted_text)
+
         # Download button
-        st.download_button(
-            label="📥 Download Markdown",
-            data=markdown_text,
-            file_name="ocr_results.md",
-            mime="text/markdown"
+        create_download_button(
+            config['download_label'],
+            formatted_text,
+            config['filename'],
+            config['mime']
         )
-    
-    elif output_format == "JSON":
-        json_text = ocr_engine.format_as_json(ocr_results)
-        st.markdown("### JSON Output")
-        st.json(json_text)
-        
-        # Download button
-        st.download_button(
-            label="📥 Download JSON",
-            data=json_text,
-            file_name="ocr_results.json",
-            mime="application/json"
-        )
-    
-    elif output_format == "Text":
-        text_output = ocr_engine.format_as_markdown(ocr_results, page_numbers=False)
-        st.markdown("### Plain Text Output")
-        st.text_area("Text", text_output, height=400)
-        
-        # Download button
-        st.download_button(
-            label="📥 Download Text",
-            data=text_output,
-            file_name="ocr_results.txt",
-            mime="text/plain"
-        )
-    
-    elif output_format == "HTML":
-        html_text = ocr_engine.format_as_html(ocr_results)
-        st.markdown("### HTML Output")
-        st.code(html_text, language="html")
-        
-        # Download button
-        st.download_button(
-            label="📥 Download HTML",
-            data=html_text,
-            file_name="ocr_results.html",
-            mime="text/html"
-        )
-    
+
     # Detailed view
     with st.expander("🔍 Detailed View (Page by Page)"):
         for i, result in enumerate(ocr_results, 1):
             st.markdown(f"#### Page {i}")
             structured_data = ocr_engine.extract_structured_data(result)
-            
+
             if structured_data:
                 for block in structured_data:
                     col1, col2 = st.columns([4, 1])
@@ -274,7 +385,7 @@ def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str
                         st.caption(f"Conf: {block['confidence']:.2%}")
             else:
                 st.info("No text detected on this page")
-            
+
             st.divider()
 
 
@@ -302,18 +413,37 @@ def main():
     config = create_sidebar()
     
     # Main content area
-    st.subheader("📁 File Upload")
-    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.subheader("📁 File Upload")
+    with col2:
+        if st.session_state.processing_complete:
+            if st.button("🔄 Clear Results", use_container_width=True):
+                clear_results()
+
     # File uploader
     uploaded_files = st.file_uploader(
         "Choose files to process",
-        type=list(SUPPORTED_FORMATS.keys()),
+        type=[ext.lstrip('.') for ext in SUPPORTED_FORMATS.keys()],  # Remove dots for Streamlit
         accept_multiple_files=True,
-        help=f"Maximum file size: {MAX_FILE_SIZE_MB}MB per file"
+        help=f"Supported formats: {', '.join(SUPPORTED_FORMATS.values())} | Max size: {MAX_FILE_SIZE_MB}MB per file"
     )
-    
-    # Output format selection
-    col1, col2 = st.columns([3, 1])
+
+    # Show file preview if files are uploaded
+    if uploaded_files:
+        with st.expander(f"📎 Uploaded Files ({len(uploaded_files)})", expanded=False):
+            for uploaded_file in uploaded_files:
+                col1, col2, col3 = st.columns([3, 1, 1])
+                with col1:
+                    st.text(f"📄 {uploaded_file.name}")
+                with col2:
+                    st.text(format_file_size(uploaded_file.size))
+                with col3:
+                    extension = Path(uploaded_file.name).suffix.lower()
+                    st.text(SUPPORTED_FORMATS.get(extension, 'Unknown'))
+
+    # Output format and process button
+    col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         output_format = st.selectbox(
             "Output Format",
@@ -321,38 +451,58 @@ def main():
             help="Select the format for OCR results"
         )
     with col2:
+        st.write("")  # Spacing
+    with col3:
+        st.write("")  # Spacing
         process_button = st.button("🚀 Process Files", type="primary", use_container_width=True)
-    
+
     # Process files when button is clicked
     if process_button and uploaded_files:
+        logger.info(f"Process button clicked with {len(uploaded_files)} files")
         # Create temporary directory
         temp_dir = Path(tempfile.mkdtemp())
-        
+
         try:
             # Process files
             start_time = time.time()
-            ocr_results, processed_images = process_uploaded_files(
+            ocr_results, file_metadata = process_uploaded_files(
                 uploaded_files, config, temp_dir
             )
             processing_time = time.time() - start_time
-            
+
             # Store results in session state
-            st.session_state.ocr_results = ocr_results
-            st.session_state.processed_images = processed_images
-            st.session_state.processing_complete = True
-            
-            st.success(f"✅ Processing completed in {processing_time:.2f} seconds!")
-            
+            if ocr_results:
+                st.session_state.ocr_results = ocr_results
+                st.session_state.file_metadata = file_metadata
+                st.session_state.processing_complete = True
+
+                st.success(f"✅ Processing completed in {processing_time:.2f} seconds!")
+                logger.info(f"Processing completed successfully in {processing_time:.2f}s")
+            else:
+                st.warning("⚠️ No results generated. Please check the files and try again.")
+                logger.warning("Processing completed but no results generated")
+
         except Exception as e:
+            logger.error(f"Error during processing: {e}", exc_info=True)
             st.error(f"❌ Error during processing: {str(e)}")
-        
+
         finally:
             # Cleanup temporary directory
-            shutil.rmtree(temp_dir, ignore_errors=True)
-    
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                logger.info(f"Cleaned up temporary directory: {temp_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to clean up temp directory: {e}")
+
     elif process_button and not uploaded_files:
         st.warning("⚠️ Please upload at least one file to process.")
-    
+        logger.warning("Process button clicked without files")
+
+    # Show image preview if available
+    if st.session_state.preview_images:
+        with st.expander("🖼️ Preview (First Page)", expanded=False):
+            st.image(st.session_state.preview_images[0], caption="First page preview", use_container_width=False)
+
     # Display results if available
     if st.session_state.processing_complete and st.session_state.ocr_results:
         st.divider()
