@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  paddleocr-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: paddleocr-app:latest
+    container_name: paddleocr-streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DEFAULT_LANGUAGE=${DEFAULT_LANGUAGE:-en}
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+      - ENABLE_CACHE=${ENABLE_CACHE:-true}
+      - CACHE_TTL=${CACHE_TTL:-3600}
+    volumes:
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+      # Mount cache directory for persistence
+      - ./cache:/app/.cache
+      # Optional: Mount custom samples
+      - ./samples:/app/samples:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+# Optional: Add GPU support
+  # paddleocr-app-gpu:
+  #   extends: paddleocr-app
+  #   runtime: nvidia
+  #   environment:
+  #     - OCR_DEVICE=gpu:0
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+networks:
+  default:
+    name: paddleocr-network

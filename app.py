@@ -23,7 +23,8 @@ from config import (
     DEVICE_OPTIONS,
     PRECISION_OPTIONS,
     MAX_FILE_SIZE_MB,
-    TEXTAREA_HEIGHT
+    TEXTAREA_HEIGHT,
+    OCR_PRESETS
 )
 
 # Setup logging
@@ -58,8 +59,25 @@ def clear_results():
 def create_sidebar():
     """Create sidebar with OCR configuration options"""
     st.sidebar.title("⚙️ OCR Configuration")
-    
-    # Language selection
+
+    # Settings Preset Selection
+    st.sidebar.subheader("⚡ Quick Settings")
+    preset_name = st.sidebar.selectbox(
+        "Settings Preset",
+        options=list(OCR_PRESETS.keys()),
+        index=1,  # Default to "Balanced"
+        format_func=lambda x: OCR_PRESETS[x]['name'],
+        help="Choose a preset or use Custom for manual configuration"
+    )
+
+    # Show preset description
+    preset_desc = OCR_PRESETS[preset_name]['description']
+    st.sidebar.info(f"ℹ️ {preset_desc}")
+
+    # Get preset config
+    preset_config = OCR_PRESETS[preset_name]['config']
+
+    # Language selection (always shown)
     st.sidebar.subheader("Language Settings")
     language = st.sidebar.selectbox(
         "OCR Language",
@@ -67,85 +85,94 @@ def create_sidebar():
         format_func=lambda x: LANGUAGE_OPTIONS[x],
         help="Select the language for OCR recognition"
     )
-    
-    # Detection settings
-    st.sidebar.subheader("Detection Settings")
-    use_textline_orientation = st.sidebar.checkbox(
-        "Enable Textline Orientation",
-        value=True,
-        help="Detect and correct text line orientation"
-    )
-    
-    text_det_thresh = st.sidebar.slider(
-        "Detection Threshold",
-        min_value=0.1,
-        max_value=0.9,
-        value=0.3,
-        step=0.05,
-        help="Threshold for text detection"
-    )
-    
-    text_det_box_thresh = st.sidebar.slider(
-        "Box Threshold",
-        min_value=0.1,
-        max_value=0.9,
-        value=0.6,
-        step=0.05,
-        help="Threshold for bounding box filtering"
-    )
-    
-    # Recognition settings
-    st.sidebar.subheader("Recognition Settings")
-    text_rec_score_thresh = st.sidebar.slider(
-        "Recognition Score Threshold",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.05,
-        help="Minimum confidence score for recognition results"
-    )
-    
-    text_recognition_batch_size = st.sidebar.number_input(
-        "Recognition Batch Size",
-        min_value=1,
-        max_value=32,
-        value=6,
-        help="Number of text lines to recognize in parallel"
-    )
-    
-    # Advanced settings (collapsed by default)
-    with st.sidebar.expander("Advanced Settings"):
-        use_doc_orientation_classify = st.checkbox(
-            "Enable Document Orientation Classification",
-            value=False,
-            help="Classify and correct document orientation"
+
+    # Show detailed settings only for Custom preset
+    if preset_name == 'Custom':
+        # Detection settings
+        st.sidebar.subheader("Detection Settings")
+        use_textline_orientation = st.sidebar.checkbox(
+            "Enable Textline Orientation",
+            value=True,
+            help="Detect and correct text line orientation"
         )
-        
-        use_doc_unwarping = st.checkbox(
-            "Enable Document Unwarping",
-            value=False,
-            help="Unwarp distorted document images"
+
+        text_det_thresh = st.sidebar.slider(
+            "Detection Threshold",
+            min_value=0.1,
+            max_value=0.9,
+            value=0.3,
+            step=0.05,
+            help="Threshold for text detection"
         )
-        
-        return_word_box = st.checkbox(
-            "Return Word Boxes",
-            value=False,
-            help="Return bounding boxes for individual words"
+
+        text_det_box_thresh = st.sidebar.slider(
+            "Box Threshold",
+            min_value=0.1,
+            max_value=0.9,
+            value=0.6,
+            step=0.05,
+            help="Threshold for bounding box filtering"
         )
-    
-    # Build configuration dictionary
-    config = {
-        'lang': language,
-        'use_textline_orientation': use_textline_orientation,
-        'text_det_thresh': text_det_thresh,
-        'text_det_box_thresh': text_det_box_thresh,
-        'text_rec_score_thresh': text_rec_score_thresh,
-        'text_recognition_batch_size': text_recognition_batch_size,
-        'use_doc_orientation_classify': use_doc_orientation_classify,
-        'use_doc_unwarping': use_doc_unwarping,
-        'return_word_box': return_word_box
-    }
-    
+
+        # Recognition settings
+        st.sidebar.subheader("Recognition Settings")
+        text_rec_score_thresh = st.sidebar.slider(
+            "Recognition Score Threshold",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.5,
+            step=0.05,
+            help="Minimum confidence score for recognition results"
+        )
+
+        text_recognition_batch_size = st.sidebar.number_input(
+            "Recognition Batch Size",
+            min_value=1,
+            max_value=32,
+            value=6,
+            help="Number of text lines to recognize in parallel"
+        )
+
+        # Advanced settings (collapsed by default)
+        with st.sidebar.expander("Advanced Settings"):
+            use_doc_orientation_classify = st.checkbox(
+                "Enable Document Orientation Classification",
+                value=False,
+                help="Classify and correct document orientation"
+            )
+
+            use_doc_unwarping = st.checkbox(
+                "Enable Document Unwarping",
+                value=False,
+                help="Unwarp distorted document images"
+            )
+
+            return_word_box = st.checkbox(
+                "Return Word Boxes",
+                value=False,
+                help="Return bounding boxes for individual words"
+            )
+
+        # Build configuration from custom settings
+        config = {
+            'lang': language,
+            'use_textline_orientation': use_textline_orientation,
+            'text_det_thresh': text_det_thresh,
+            'text_det_box_thresh': text_det_box_thresh,
+            'text_rec_score_thresh': text_rec_score_thresh,
+            'text_recognition_batch_size': text_recognition_batch_size,
+            'use_doc_orientation_classify': use_doc_orientation_classify,
+            'use_doc_unwarping': use_doc_unwarping,
+            'return_word_box': return_word_box
+        }
+    else:
+        # Use preset configuration
+        config = {'lang': language, **preset_config}
+
+        # Show current settings in expandable section
+        with st.sidebar.expander("📋 View Current Settings"):
+            st.json(preset_config)
+
     return config
 
 
