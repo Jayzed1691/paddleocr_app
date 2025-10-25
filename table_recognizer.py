@@ -59,7 +59,7 @@ class TableRecognizer:
             conf_threshold: Confidence threshold for table detection
 
         Returns:
-            List of detected tables with bounding boxes and metadata
+            List of detected tables with bounding boxes, cells, and grid data
         """
         if self.table_engine is None:
             logger.warning("Table engine not initialized")
@@ -76,16 +76,26 @@ class TableRecognizer:
             tables = []
             for item in result:
                 if item['type'] == 'table' and item.get('score', 0) >= conf_threshold:
-                    table_data = {
-                        'bbox': item['bbox'],
-                        'confidence': item.get('score', 0.0),
-                        'type': 'table',
-                        'html': item.get('res', {}).get('html', ''),
-                        'cells': self._extract_cells(item),
-                        'rows': self._count_rows(item),
-                        'columns': self._count_columns(item)
-                    }
-                    tables.append(table_data)
+                    # Parse full table structure including grid
+                    table_data = self._parse_table_structure(item)
+
+                    # Only include if parsing was successful
+                    if 'error' not in table_data:
+                        tables.append(table_data)
+                    else:
+                        # Fallback to basic structure without grid
+                        logger.warning(f"Could not parse table structure, using basic data: {table_data.get('error')}")
+                        table_data = {
+                            'bbox': item['bbox'],
+                            'confidence': item.get('score', 0.0),
+                            'type': 'table',
+                            'html': item.get('res', {}).get('html', ''),
+                            'cells': self._extract_cells(item),
+                            'rows': self._count_rows(item),
+                            'columns': self._count_columns(item),
+                            'grid': []  # Empty grid as fallback
+                        }
+                        tables.append(table_data)
 
             logger.info(f"Detected {len(tables)} tables in image")
             return tables

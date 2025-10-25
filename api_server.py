@@ -258,6 +258,7 @@ async def process_ocr(
 # Table extraction endpoint
 @app.post("/ocr/extract-tables")
 async def extract_tables(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     lang: str = Query(default="en"),
     conf_threshold: float = Query(default=0.5, ge=0.1, le=1.0),
@@ -294,6 +295,8 @@ async def extract_tables(
                 all_tables.append(table)
 
         if not all_tables:
+            # Cleanup immediately for JSON response
+            shutil.rmtree(temp_dir, ignore_errors=True)
             return JSONResponse(
                 content={"message": "No tables detected", "tables": []},
                 status_code=200
@@ -305,6 +308,8 @@ async def extract_tables(
             success = table_recognizer.export_to_excel(all_tables, str(output_path))
 
             if success:
+                # Schedule cleanup after response is sent
+                background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
                 return FileResponse(
                     path=output_path,
                     filename="extracted_tables.xlsx",
@@ -316,14 +321,17 @@ async def extract_tables(
             success = table_recognizer.export_to_csv(all_tables[0], str(output_path))
 
             if success:
+                # Schedule cleanup after response is sent
+                background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
                 return FileResponse(
                     path=output_path,
                     filename="extracted_table.csv",
                     media_type="text/csv"
                 )
 
-        # Default: JSON
+        # Default: JSON - cleanup immediately
         stats = table_recognizer.get_table_statistics(all_tables)
+        shutil.rmtree(temp_dir, ignore_errors=True)
         return JSONResponse(content={
             "tables": all_tables,
             "statistics": stats
@@ -331,10 +339,9 @@ async def extract_tables(
 
     except Exception as e:
         logger.error(f"Error extracting tables: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-    finally:
+        # Cleanup on error
         shutil.rmtree(temp_dir, ignore_errors=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Cache management endpoints
@@ -354,6 +361,7 @@ async def clear_cache():
 # Export endpoints
 @app.post("/ocr/export/{format}")
 async def export_results(
+    background_tasks: BackgroundTasks,
     format: str,
     file: UploadFile = File(...),
     config: OCRConfig = Depends()
@@ -384,35 +392,44 @@ async def export_results(
             content = ocr_engine.format_as_markdown(results, page_numbers=True)
             output_path = temp_dir / "output.md"
             output_path.write_text(content)
+            # Schedule cleanup after response is sent
+            background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
             return FileResponse(output_path, filename="ocr_result.md", media_type="text/markdown")
 
         elif format == "json":
             content = ocr_engine.format_as_json(results)
             output_path = temp_dir / "output.json"
             output_path.write_text(content)
+            # Schedule cleanup after response is sent
+            background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
             return FileResponse(output_path, filename="ocr_result.json", media_type="application/json")
 
         elif format == "html":
             content = ocr_engine.format_as_html(results)
             output_path = temp_dir / "output.html"
             output_path.write_text(content)
+            # Schedule cleanup after response is sent
+            background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
             return FileResponse(output_path, filename="ocr_result.html", media_type="text/html")
 
         elif format == "txt":
             content = ocr_engine.format_as_markdown(results, page_numbers=False)
             output_path = temp_dir / "output.txt"
             output_path.write_text(content)
+            # Schedule cleanup after response is sent
+            background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
             return FileResponse(output_path, filename="ocr_result.txt", media_type="text/plain")
 
         else:
+            # Cleanup immediately for error
+            shutil.rmtree(temp_dir, ignore_errors=True)
             raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
 
     except Exception as e:
         logger.error(f"Error exporting: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-    finally:
+        # Cleanup on error
         shutil.rmtree(temp_dir, ignore_errors=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Run server

@@ -61,9 +61,19 @@ class OCREngine:
         Args:
             new_config: New configuration parameters
         """
+        # Runtime parameters that also require reinit (PaddleOCR limitation)
+        # PaddleOCR doesn't support runtime parameter updates, so we reinit for these too
+        RUNTIME_PARAMS = {
+            'text_det_thresh', 'text_rec_score_thresh', 'text_det_box_thresh',
+            'text_recognition_batch_size', 'use_textline_orientation',
+            'use_doc_orientation_classify', 'use_doc_unwarping', 'return_word_box'
+        }
+
         # Check if any critical parameters have changed
         needs_reinit = False
-        for param in OCR_REINIT_PARAMS:
+        all_reinit_params = OCR_REINIT_PARAMS | RUNTIME_PARAMS
+
+        for param in all_reinit_params:
             if param in new_config and new_config.get(param) != self._last_init_config.get(param):
                 needs_reinit = True
                 logger.info(f"Parameter '{param}' changed, reinitialization required")
@@ -73,12 +83,12 @@ class OCREngine:
         old_config = self.config.copy()
         self.config.update(new_config)
 
-        # Only reinitialize if necessary
+        # Reinitialize to apply changes (PaddleOCR doesn't support runtime updates)
         if needs_reinit:
-            logger.info("Reinitializing OCR engine due to config changes")
+            logger.info("Reinitializing OCR engine to apply config changes")
             self._initialize_ocr()
         else:
-            logger.info("Config updated without reinitialization (runtime parameters only)")
+            logger.info("Config updated without reinitialization (no tracked parameters changed)")
     
     def process_image(self, image: Union[str, Path, Image.Image, np.ndarray]) -> List[Any]:
         """
