@@ -38,8 +38,9 @@ class TestOCREngine:
         engine = OCREngine({"lang": "en"})
         initial_call_count = mock_paddle.call_count
 
-        # Update non-critical parameter
-        engine.update_config({"text_det_thresh": 0.5})
+        # Update parameter not in OCR_REINIT_PARAMS or RUNTIME_PARAMS
+        # (custom parameters that don't affect OCR behavior)
+        engine.update_config({"custom_param": "value"})
 
         # Should not reinitialize
         assert mock_paddle.call_count == initial_call_count
@@ -50,10 +51,22 @@ class TestOCREngine:
         engine = OCREngine({"lang": "en"})
         initial_call_count = mock_paddle.call_count
 
-        # Update critical parameter
+        # Update critical parameter (lang requires reinit)
         engine.update_config({"lang": "ch"})
 
         # Should reinitialize
+        assert mock_paddle.call_count > initial_call_count
+
+    @patch("ocr_engine.PaddleOCR")
+    def test_update_config_runtime_param_reinit(self, mock_paddle):
+        """Test that runtime parameters now trigger reinitialization (bug fix)"""
+        engine = OCREngine({"lang": "en"})
+        initial_call_count = mock_paddle.call_count
+
+        # Update runtime parameter (text_det_thresh now requires reinit after bug fix)
+        engine.update_config({"text_det_thresh": 0.5})
+
+        # Should reinitialize (this is the bug fix - runtime params were being ignored)
         assert mock_paddle.call_count > initial_call_count
 
     def test_extract_text(self, mock_ocr_result):
