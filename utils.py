@@ -2,11 +2,12 @@
 Utility functions for the PaddleOCR application
 """
 
-import os
 import hashlib
 import logging
+import os
 from pathlib import Path
 from typing import Optional, Tuple
+
 import magic
 
 from config import MAX_FILE_SIZE_MB, SUPPORTED_FORMATS
@@ -28,15 +29,21 @@ def validate_file(file_path: Path, uploaded_file: any) -> Tuple[bool, Optional[s
     # Check file size
     file_size_mb = uploaded_file.size / (1024 * 1024)
     if file_size_mb > MAX_FILE_SIZE_MB:
-        return False, f"File size ({file_size_mb:.1f}MB) exceeds maximum allowed size ({MAX_FILE_SIZE_MB}MB)"
+        return (
+            False,
+            f"File size ({file_size_mb:.1f}MB) exceeds maximum allowed size ({MAX_FILE_SIZE_MB}MB)",
+        )
 
     # Check file extension
     file_extension = file_path.suffix.lower()
     if file_extension not in SUPPORTED_FORMATS:
-        return False, f"Unsupported file format: {file_extension}. Supported formats: {', '.join(SUPPORTED_FORMATS.keys())}"
+        return (
+            False,
+            f"Unsupported file format: {file_extension}. Supported formats: {', '.join(SUPPORTED_FORMATS.keys())}",
+        )
 
     # Validate file name (no path traversal)
-    if '..' in uploaded_file.name or '/' in uploaded_file.name or '\\' in uploaded_file.name:
+    if ".." in uploaded_file.name or "/" in uploaded_file.name or "\\" in uploaded_file.name:
         return False, "Invalid file name (potential path traversal)"
 
     # Additional validation: Check MIME type matches extension
@@ -69,14 +76,14 @@ def get_mime_type(file_path: Path) -> str:
     except (ImportError, AttributeError):
         # Fallback to simple extension-based detection
         extension_to_mime = {
-            '.pdf': 'application/pdf',
-            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            '.txt': 'text/plain',
-            '.png': 'image/png',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg'
+            ".pdf": "application/pdf",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".txt": "text/plain",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
         }
-        return extension_to_mime.get(file_path.suffix.lower(), 'application/octet-stream')
+        return extension_to_mime.get(file_path.suffix.lower(), "application/octet-stream")
 
 
 def is_mime_type_valid(mime_type: str, file_extension: str) -> bool:
@@ -91,15 +98,19 @@ def is_mime_type_valid(mime_type: str, file_extension: str) -> bool:
         True if valid, False otherwise
     """
     valid_mimes = {
-        '.pdf': ['application/pdf'],
-        '.docx': [
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/zip'  # DOCX files are zip archives
+        ".pdf": ["application/pdf"],
+        ".docx": [
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/zip",  # DOCX files are zip archives
         ],
-        '.txt': ['text/plain', 'text/x-c', 'application/octet-stream'],  # Text files can have various MIME types
-        '.png': ['image/png'],
-        '.jpg': ['image/jpeg'],
-        '.jpeg': ['image/jpeg']
+        ".txt": [
+            "text/plain",
+            "text/x-c",
+            "application/octet-stream",
+        ],  # Text files can have various MIME types
+        ".png": ["image/png"],
+        ".jpg": ["image/jpeg"],
+        ".jpeg": ["image/jpeg"],
     }
 
     expected_mimes = valid_mimes.get(file_extension.lower(), [])
@@ -122,12 +133,12 @@ def sanitize_filename(filename: str) -> str:
     # Remove any non-alphanumeric characters except dots, dashes, and underscores
     safe_chars = []
     for char in filename:
-        if char.isalnum() or char in '.-_':
+        if char.isalnum() or char in ".-_":
             safe_chars.append(char)
         else:
-            safe_chars.append('_')
+            safe_chars.append("_")
 
-    return ''.join(safe_chars)
+    return "".join(safe_chars)
 
 
 def compute_file_hash(file_path: Path) -> str:
@@ -158,7 +169,7 @@ def format_file_size(size_bytes: int) -> str:
     Returns:
         Formatted string (e.g., "1.5 MB")
     """
-    for unit in ['B', 'KB', 'MB', 'GB']:
+    for unit in ["B", "KB", "MB", "GB"]:
         if size_bytes < 1024.0:
             return f"{size_bytes:.1f} {unit}"
         size_bytes /= 1024.0

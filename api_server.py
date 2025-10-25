@@ -4,29 +4,28 @@ Provides programmatic access to OCR functionality
 """
 
 import logging
-import tempfile
 import shutil
+import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime
-import json
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, BackgroundTasks, Query
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 import uvicorn
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, Field
 
-from ocr_engine import OCREngine
-from document_processor import DocumentProcessor
-from table_recognizer import TableRecognizer
 from cache_manager import CacheManager
+from document_processor import DocumentProcessor
 from image_enhancer import ImageEnhancer
-from utils import validate_file, compute_file_hash, sanitize_filename
 from logger_config import setup_logging
+from ocr_engine import OCREngine
+from table_recognizer import TableRecognizer
+from utils import compute_file_hash, sanitize_filename
 
 # Setup logging
-setup_logging(log_level='INFO')
+setup_logging(log_level="INFO")
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
@@ -35,7 +34,7 @@ app = FastAPI(
     description="REST API for OCR processing with table recognition",
     version="3.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # Add CORS middleware
@@ -51,9 +50,11 @@ app.add_middleware(
 cache_manager = CacheManager(enabled=True)
 table_recognizer = TableRecognizer()
 
+
 # Request/Response Models
 class OCRConfig(BaseModel):
     """OCR configuration parameters"""
+
     lang: str = Field(default="en", description="Language for OCR")
     use_textline_orientation: bool = Field(default=True)
     text_det_thresh: float = Field(default=0.3, ge=0.1, le=0.9)
@@ -64,6 +65,7 @@ class OCRConfig(BaseModel):
 
 class ImageEnhancementConfig(BaseModel):
     """Image enhancement parameters"""
+
     rotation: float = Field(default=0.0, description="Rotation angle in degrees")
     brightness: float = Field(default=1.0, ge=0.1, le=3.0)
     contrast: float = Field(default=1.0, ge=0.1, le=3.0)
@@ -76,6 +78,7 @@ class ImageEnhancementConfig(BaseModel):
 
 class OCRResponse(BaseModel):
     """OCR processing response"""
+
     success: bool
     processing_time: float
     total_pages: int
@@ -89,6 +92,7 @@ class OCRResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Health check response"""
+
     status: str
     timestamp: str
     version: str
@@ -121,8 +125,8 @@ async def health_check():
         services={
             "ocr": "available",
             "table_recognition": "available" if table_recognizer.table_engine else "unavailable",
-            "cache": "enabled" if cache_manager.enabled else "disabled"
-        }
+            "cache": "enabled" if cache_manager.enabled else "disabled",
+        },
     )
 
 
@@ -132,7 +136,7 @@ async def process_ocr(
     file: UploadFile = File(..., description="Document file to process"),
     config: OCRConfig = Depends(),
     enhancement: Optional[ImageEnhancementConfig] = None,
-    use_cache: bool = Query(default=True, description="Use result caching")
+    use_cache: bool = Query(default=True, description="Use result caching"),
 ):
     """
     Process document with OCR
@@ -145,6 +149,7 @@ async def process_ocr(
     Returns OCR results with text, confidence scores, and optionally tables
     """
     import time
+
     start_time = time.time()
 
     temp_dir = Path(tempfile.mkdtemp())
@@ -154,7 +159,7 @@ async def process_ocr(
         safe_filename = sanitize_filename(file.filename)
         file_path = temp_dir / safe_filename
 
-        with open(file_path, 'wb') as f:
+        with open(file_path, "wb") as f:
             content = await file.read()
             f.write(content)
 
@@ -169,11 +174,7 @@ async def process_ocr(
         if cached_result:
             logger.info(f"Cache hit for {file.filename}")
             processing_time = time.time() - start_time
-            return OCRResponse(
-                **cached_result,
-                processing_time=processing_time,
-                cached=True
-            )
+            return OCRResponse(**cached_result, processing_time=processing_time, cached=True)
 
         # Process document
         doc_processor = DocumentProcessor()
@@ -192,7 +193,7 @@ async def process_ocr(
                     denoise=enhancement.denoise,
                     deskew=enhancement.deskew,
                     grayscale=enhancement.grayscale,
-                    adaptive_threshold=enhancement.adaptive_threshold
+                    adaptive_threshold=enhancement.adaptive_threshold,
                 )
                 for img in images
             ]
@@ -212,8 +213,7 @@ async def process_ocr(
             tables_data = []
             for image in images:
                 tables = table_recognizer.detect_tables(
-                    image,
-                    conf_threshold=config.table_conf_threshold
+                    image, conf_threshold=config.table_conf_threshold
                 )
                 tables_data.extend(tables)
 
@@ -224,20 +224,20 @@ async def process_ocr(
         response_data = {
             "success": True,
             "processing_time": time.time() - start_time,
-            "total_pages": stats['total_pages'],
-            "total_text_blocks": stats['total_text_blocks'],
-            "total_characters": stats['total_characters'],
-            "average_confidence": stats['average_confidence'],
+            "total_pages": stats["total_pages"],
+            "total_text_blocks": stats["total_text_blocks"],
+            "total_characters": stats["total_characters"],
+            "average_confidence": stats["average_confidence"],
             "results": [
                 {
                     "page": i + 1,
                     "text": ocr_engine.extract_text(result),
-                    "structured_data": ocr_engine.extract_structured_data(result)
+                    "structured_data": ocr_engine.extract_structured_data(result),
                 }
                 for i, result in enumerate(ocr_results)
             ],
             "tables": tables_data,
-            "cached": False
+            "cached": False,
         }
 
         # Cache result
@@ -262,7 +262,7 @@ async def extract_tables(
     file: UploadFile = File(...),
     lang: str = Query(default="en"),
     conf_threshold: float = Query(default=0.5, ge=0.1, le=1.0),
-    export_format: str = Query(default="json", regex="^(json|excel|csv)$")
+    export_format: str = Query(default="json", regex="^(json|excel|csv)$"),
 ):
     """
     Extract tables from document
@@ -279,7 +279,7 @@ async def extract_tables(
     try:
         # Save file
         file_path = temp_dir / sanitize_filename(file.filename)
-        with open(file_path, 'wb') as f:
+        with open(file_path, "wb") as f:
             f.write(await file.read())
 
         # Process to images
@@ -291,15 +291,14 @@ async def extract_tables(
         for page_idx, image in enumerate(images):
             tables = table_recognizer.detect_tables(image, conf_threshold)
             for table in tables:
-                table['page'] = page_idx + 1
+                table["page"] = page_idx + 1
                 all_tables.append(table)
 
         if not all_tables:
             # Cleanup immediately for JSON response
             shutil.rmtree(temp_dir, ignore_errors=True)
             return JSONResponse(
-                content={"message": "No tables detected", "tables": []},
-                status_code=200
+                content={"message": "No tables detected", "tables": []}, status_code=200
             )
 
         # Export based on format
@@ -313,7 +312,7 @@ async def extract_tables(
                 return FileResponse(
                     path=output_path,
                     filename="extracted_tables.xlsx",
-                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
 
         elif export_format == "csv" and len(all_tables) > 0:
@@ -324,18 +323,13 @@ async def extract_tables(
                 # Schedule cleanup after response is sent
                 background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
                 return FileResponse(
-                    path=output_path,
-                    filename="extracted_table.csv",
-                    media_type="text/csv"
+                    path=output_path, filename="extracted_table.csv", media_type="text/csv"
                 )
 
         # Default: JSON - cleanup immediately
         stats = table_recognizer.get_table_statistics(all_tables)
         shutil.rmtree(temp_dir, ignore_errors=True)
-        return JSONResponse(content={
-            "tables": all_tables,
-            "statistics": stats
-        })
+        return JSONResponse(content={"tables": all_tables, "statistics": stats})
 
     except Exception as e:
         logger.error(f"Error extracting tables: {e}", exc_info=True)
@@ -364,7 +358,7 @@ async def export_results(
     background_tasks: BackgroundTasks,
     format: str,
     file: UploadFile = File(...),
-    config: OCRConfig = Depends()
+    config: OCRConfig = Depends(),
 ):
     """
     Process document and export in specified format
@@ -378,7 +372,7 @@ async def export_results(
     try:
         # Process document
         file_path = temp_dir / sanitize_filename(file.filename)
-        with open(file_path, 'wb') as f:
+        with open(file_path, "wb") as f:
             f.write(await file.read())
 
         doc_processor = DocumentProcessor()
@@ -402,7 +396,9 @@ async def export_results(
             output_path.write_text(content)
             # Schedule cleanup after response is sent
             background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
-            return FileResponse(output_path, filename="ocr_result.json", media_type="application/json")
+            return FileResponse(
+                output_path, filename="ocr_result.json", media_type="application/json"
+            )
 
         elif format == "html":
             content = ocr_engine.format_as_html(results)
@@ -434,10 +430,4 @@ async def export_results(
 
 # Run server
 if __name__ == "__main__":
-    uvicorn.run(
-        "api_server:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("api_server:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

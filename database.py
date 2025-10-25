@@ -5,11 +5,12 @@ Tracks OCR jobs, results, and usage statistics
 
 import logging
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, Text, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
 from pathlib import Path
+from typing import Optional
+
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, Integer, String, Text, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session, sessionmaker
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,7 @@ DATABASE_URL = "sqlite:///./paddleocr.db"
 
 # Create engine
 engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+    DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 )
 
 # Create session factory
@@ -31,6 +31,7 @@ Base = declarative_base()
 
 class OCRJob(Base):
     """Model for OCR processing jobs"""
+
     __tablename__ = "ocr_jobs"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -70,6 +71,7 @@ class OCRJob(Base):
 
 class UsageStatistics(Base):
     """Model for tracking usage statistics"""
+
     __tablename__ = "usage_statistics"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -144,6 +146,7 @@ def get_recent_jobs(db: Session, limit: int = 10) -> list:
 def get_statistics(db: Session, days: int = 7) -> dict:
     """Get usage statistics for the last N days"""
     from datetime import timedelta
+
     from sqlalchemy import func
 
     cutoff_date = datetime.utcnow() - timedelta(days=days)
@@ -158,7 +161,7 @@ def get_statistics(db: Session, days: int = 7) -> dict:
             "cached_jobs": 0,
             "average_processing_time": 0.0,
             "total_pages": 0,
-            "total_tables": 0
+            "total_tables": 0,
         }
 
     total = len(jobs)
@@ -181,7 +184,7 @@ def get_statistics(db: Session, days: int = 7) -> dict:
         "average_processing_time": avg_time,
         "total_pages": total_pages,
         "total_tables": total_tables,
-        "success_rate": (successful / total * 100) if total > 0 else 0.0
+        "success_rate": (successful / total * 100) if total > 0 else 0.0,
     }
 
 

@@ -2,11 +2,12 @@
 Pytest configuration and fixtures
 """
 
-import pytest
-from pathlib import Path
-from PIL import Image
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
+
+import pytest
+from PIL import Image
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def temp_dir():
 @pytest.fixture
 def sample_image():
     """Create a sample image for testing"""
-    img = Image.new('RGB', (100, 100), color='white')
+    img = Image.new("RGB", (100, 100), color="white")
     return img
 
 
@@ -28,7 +29,7 @@ def sample_image():
 def sample_text_file(temp_dir):
     """Create a sample text file"""
     file_path = temp_dir / "test.txt"
-    with open(file_path, 'w', encoding='utf-8') as f:
+    with open(file_path, "w", encoding="utf-8") as f:
         f.write("This is a test document.\nWith multiple lines.\n")
     return file_path
 
@@ -36,16 +37,12 @@ def sample_text_file(temp_dir):
 @pytest.fixture
 def mock_ocr_result():
     """Mock OCR result structure"""
-    return [[
+    return [
         [
-            [[10, 10], [100, 10], [100, 30], [10, 30]],
-            ('Test text', 0.95)
-        ],
-        [
-            [[10, 40], [100, 40], [100, 60], [10, 60]],
-            ('Another line', 0.92)
+            [[[10, 10], [100, 10], [100, 30], [10, 30]], ("Test text", 0.95)],
+            [[[10, 40], [100, 40], [100, 60], [10, 60]], ("Another line", 0.92)],
         ]
-    ]]
+    ]
 
 
 @pytest.fixture

@@ -7,13 +7,11 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from config import LOG_FORMAT, LOG_DATE_FORMAT, LOG_LEVEL
+from config import LOG_DATE_FORMAT, LOG_FORMAT, LOG_LEVEL
 
 
 def setup_logging(
-    log_level: str = LOG_LEVEL,
-    log_file: Optional[Path] = None,
-    console_output: bool = True
+    log_level: str = LOG_LEVEL, log_file: Optional[Path] = None, console_output: bool = True
 ) -> None:
     """
     Configure logging for the application
@@ -47,15 +45,15 @@ def setup_logging(
     if log_file:
         log_file = Path(log_file)
         log_file.parent.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(numeric_level)
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
 
     # Set levels for third-party loggers to reduce noise
-    logging.getLogger('PIL').setLevel(logging.WARNING)
-    logging.getLogger('matplotlib').setLevel(logging.WARNING)
-    logging.getLogger('paddleocr').setLevel(logging.WARNING)
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("matplotlib").setLevel(logging.WARNING)
+    logging.getLogger("paddleocr").setLevel(logging.WARNING)
 
     root_logger.info(f"Logging configured with level: {log_level}")
     if log_file:

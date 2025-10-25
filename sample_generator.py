@@ -3,14 +3,15 @@ Generate sample images for testing OCR
 Run this script to create sample document images in the samples/ directory
 """
 
-from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
 
 
 def create_sample_document():
     """Create a sample document image"""
     width, height = 800, 1000
-    img = Image.new('RGB', (width, height), color='white')
+    img = Image.new("RGB", (width, height), color="white")
     draw = ImageDraw.Draw(img)
 
     # Try to load a system font
@@ -22,10 +23,10 @@ def create_sample_document():
         body_font = ImageFont.load_default()
 
     # Title
-    draw.text((50, 50), "SAMPLE BUSINESS DOCUMENT", fill='black', font=title_font)
+    draw.text((50, 50), "SAMPLE BUSINESS DOCUMENT", fill="black", font=title_font)
 
     # Horizontal line
-    draw.line([(50, 100), (750, 100)], fill='black', width=2)
+    draw.line([(50, 100), (750, 100)], fill="black", width=2)
 
     # Content
     content = [
@@ -60,7 +61,7 @@ def create_sample_document():
 
     y = 130
     for line in content:
-        draw.text((50, y), line, fill='black', font=body_font)
+        draw.text((50, y), line, fill="black", font=body_font)
         y += 30
 
     return img
@@ -69,7 +70,7 @@ def create_sample_document():
 def create_sample_receipt():
     """Create a sample receipt image"""
     width, height = 600, 800
-    img = Image.new('RGB', (width, height), color='white')
+    img = Image.new("RGB", (width, height), color="white")
     draw = ImageDraw.Draw(img)
 
     # Try to load a system font
@@ -83,25 +84,25 @@ def create_sample_receipt():
         small_font = ImageFont.load_default()
 
     # Store name
-    draw.text((200, 30), "GROCERY MART", fill='black', font=title_font)
-    draw.text((180, 65), "123 Main Street", fill='black', font=small_font)
-    draw.text((165, 85), "Anytown, ST 12345", fill='black', font=small_font)
-    draw.text((190, 105), "Tel: 555-0123", fill='black', font=small_font)
+    draw.text((200, 30), "GROCERY MART", fill="black", font=title_font)
+    draw.text((180, 65), "123 Main Street", fill="black", font=small_font)
+    draw.text((165, 85), "Anytown, ST 12345", fill="black", font=small_font)
+    draw.text((190, 105), "Tel: 555-0123", fill="black", font=small_font)
 
     # Line
-    draw.line([(50, 140), (550, 140)], fill='black', width=1)
+    draw.line([(50, 140), (550, 140)], fill="black", width=1)
 
     # Receipt details
     y = 160
-    draw.text((50, y), "Date: 2024-01-20", fill='black', font=body_font)
+    draw.text((50, y), "Date: 2024-01-20", fill="black", font=body_font)
     y += 25
-    draw.text((50, y), "Time: 14:35:22", fill='black', font=body_font)
+    draw.text((50, y), "Time: 14:35:22", fill="black", font=body_font)
     y += 25
-    draw.text((50, y), "Receipt #: 789456", fill='black', font=body_font)
+    draw.text((50, y), "Receipt #: 789456", fill="black", font=body_font)
 
     # Line
     y += 30
-    draw.line([(50, y), (550, y)], fill='black', width=1)
+    draw.line([(50, y), (550, y)], fill="black", width=1)
 
     # Items
     items = [
@@ -115,40 +116,40 @@ def create_sample_receipt():
 
     y += 20
     for item, price in items:
-        draw.text((50, y), item, fill='black', font=body_font)
-        draw.text((450, y), price, fill='black', font=body_font)
+        draw.text((50, y), item, fill="black", font=body_font)
+        draw.text((450, y), price, fill="black", font=body_font)
         y += 25
 
     # Line
     y += 10
-    draw.line([(50, y), (550, y)], fill='black', width=1)
+    draw.line([(50, y), (550, y)], fill="black", width=1)
 
     # Totals
     y += 20
-    draw.text((350, y), "Subtotal:", fill='black', font=body_font)
-    draw.text((450, y), "$ 41.24", fill='black', font=body_font)
+    draw.text((350, y), "Subtotal:", fill="black", font=body_font)
+    draw.text((450, y), "$ 41.24", fill="black", font=body_font)
 
     y += 25
-    draw.text((350, y), "Tax (8%):", fill='black', font=body_font)
-    draw.text((450, y), "$  3.30", fill='black', font=body_font)
+    draw.text((350, y), "Tax (8%):", fill="black", font=body_font)
+    draw.text((450, y), "$  3.30", fill="black", font=body_font)
 
     y += 30
-    draw.text((350, y), "TOTAL:", fill='black', font=title_font)
-    draw.text((450, y), "$ 44.54", fill='black', font=title_font)
+    draw.text((350, y), "TOTAL:", fill="black", font=title_font)
+    draw.text((450, y), "$ 44.54", fill="black", font=title_font)
 
     # Payment
     y += 50
-    draw.text((50, y), "Payment Method: VISA ****1234", fill='black', font=small_font)
+    draw.text((50, y), "Payment Method: VISA ****1234", fill="black", font=small_font)
     y += 25
-    draw.text((50, y), "Authorized: Yes", fill='black', font=small_font)
+    draw.text((50, y), "Authorized: Yes", fill="black", font=small_font)
 
     # Footer
     y += 50
-    draw.line([(50, y), (550, y)], fill='black', width=1)
+    draw.line([(50, y), (550, y)], fill="black", width=1)
     y += 20
-    draw.text((150, y), "Thank you for shopping!", fill='black', font=body_font)
+    draw.text((150, y), "Thank you for shopping!", fill="black", font=body_font)
     y += 30
-    draw.text((120, y), "Please come again soon!", fill='black', font=small_font)
+    draw.text((120, y), "Please come again soon!", fill="black", font=small_font)
 
     return img
 

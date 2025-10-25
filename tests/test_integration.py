@@ -2,16 +2,17 @@
 Integration tests for complete workflows
 """
 
-import pytest
-from pathlib import Path
-from PIL import Image
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
 
-from document_processor import DocumentProcessor
-from ocr_engine import OCREngine
+import pytest
+from PIL import Image
+
 from cache_manager import CacheManager
+from document_processor import DocumentProcessor
 from image_enhancer import ImageEnhancer
+from ocr_engine import OCREngine
 from utils import compute_file_hash
 
 
@@ -36,7 +37,7 @@ class TestEndToEndWorkflow:
     def test_image_enhancement_workflow(self, temp_dir):
         """Test image enhancement workflow"""
         # Create test image
-        img = Image.new('RGB', (200, 100), color='white')
+        img = Image.new("RGB", (200, 100), color="white")
         test_file = temp_dir / "test.png"
         img.save(test_file)
 
@@ -45,12 +46,7 @@ class TestEndToEndWorkflow:
         images = processor.process_file(test_file)
 
         enhancer = ImageEnhancer()
-        enhanced = enhancer.enhance(
-            images[0],
-            brightness=1.2,
-            contrast=1.1,
-            sharpness=1.3
-        )
+        enhanced = enhancer.enhance(images[0], brightness=1.2, contrast=1.1, sharpness=1.3)
 
         assert isinstance(enhanced, Image.Image)
         assert enhanced.size == images[0].size
@@ -70,7 +66,7 @@ class TestEndToEndWorkflow:
         cache = CacheManager(cache_dir=cache_dir, max_size=10, ttl=3600)
 
         # Test cache miss
-        config = {'lang': 'en'}
+        config = {"lang": "en"}
         result = cache.get(file_hash, config)
         assert result is None
 
@@ -84,8 +80,8 @@ class TestEndToEndWorkflow:
 
         # Test cache stats
         stats = cache.get_stats()
-        assert stats['items'] == 1
-        assert stats['enabled'] is True
+        assert stats["items"] == 1
+        assert stats["enabled"] is True
 
     @pytest.mark.integration
     def test_lru_cache_eviction(self, temp_dir):
@@ -93,7 +89,7 @@ class TestEndToEndWorkflow:
         cache_dir = temp_dir / "cache"
         cache = CacheManager(cache_dir=cache_dir, max_size=3, ttl=3600)
 
-        config = {'lang': 'en'}
+        config = {"lang": "en"}
 
         # Add 4 items (should evict oldest)
         for i in range(4):
@@ -134,7 +130,7 @@ class TestEndToEndWorkflow:
         """Test that image enhancement preserves image dimensions"""
         # Create test image
         original_size = (400, 300)
-        img = Image.new('RGB', original_size, color='gray')
+        img = Image.new("RGB", original_size, color="gray")
 
         enhancer = ImageEnhancer()
 
@@ -146,7 +142,7 @@ class TestEndToEndWorkflow:
             contrast=1.2,
             sharpness=1.3,
             denoise=True,
-            grayscale=True
+            grayscale=True,
         )
 
         assert enhanced.size == original_size
@@ -158,8 +154,8 @@ class TestEndToEndWorkflow:
         cache = CacheManager(cache_dir=cache_dir)
 
         file_hash = "test_hash"
-        config1 = {'lang': 'en', 'threshold': 0.5}
-        config2 = {'lang': 'ch', 'threshold': 0.5}
+        config1 = {"lang": "en", "threshold": 0.5}
+        config2 = {"lang": "ch", "threshold": 0.5}
 
         result1 = {"text": "English result"}
         result2 = {"text": "Chinese result"}

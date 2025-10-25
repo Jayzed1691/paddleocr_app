@@ -2,9 +2,11 @@
 Tests for utility functions
 """
 
-import pytest
 from pathlib import Path
 from unittest.mock import Mock
+
+import pytest
+
 import utils
 from config import MAX_FILE_SIZE_MB
 
