@@ -4,10 +4,11 @@ Provides various image enhancement operations to improve OCR accuracy
 """
 
 import logging
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
+import cv2
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
-import cv2
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class ImageEnhancer:
         denoise: bool = False,
         deskew: bool = False,
         grayscale: bool = False,
-        adaptive_threshold: bool = False
+        adaptive_threshold: bool = False,
     ) -> Image.Image:
         """
         Apply enhancement pipeline to image
@@ -54,8 +55,8 @@ class ImageEnhancer:
             logger.info("Starting image enhancement pipeline")
 
             # Convert to RGB if needed
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
+            if image.mode != "RGB":
+                image = image.convert("RGB")
 
             # Rotation
             if rotation != 0:
@@ -115,7 +116,7 @@ class ImageEnhancer:
         Returns:
             Rotated image
         """
-        return image.rotate(angle, expand=True, fillcolor='white')
+        return image.rotate(angle, expand=True, fillcolor="white")
 
     def adjust_brightness(self, image: Image.Image, factor: float) -> Image.Image:
         """
@@ -187,9 +188,9 @@ class ImageEnhancer:
         Returns:
             Grayscale image (converted back to RGB for compatibility)
         """
-        grayscale = image.convert('L')
+        grayscale = image.convert("L")
         # Convert back to RGB for OCR compatibility
-        return grayscale.convert('RGB')
+        return grayscale.convert("RGB")
 
     def apply_adaptive_threshold(self, image: Image.Image) -> Image.Image:
         """
@@ -202,7 +203,7 @@ class ImageEnhancer:
             Thresholded image
         """
         # Convert to grayscale numpy array
-        gray = np.array(image.convert('L'))
+        gray = np.array(image.convert("L"))
 
         # Apply adaptive threshold
         binary = cv2.adaptiveThreshold(
@@ -211,7 +212,7 @@ class ImageEnhancer:
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
             cv2.THRESH_BINARY,
             11,  # Block size
-            2    # Constant subtracted from mean
+            2,  # Constant subtracted from mean
         )
 
         # Convert back to RGB
@@ -230,7 +231,7 @@ class ImageEnhancer:
         """
         try:
             # Convert to grayscale numpy array
-            gray = np.array(image.convert('L'))
+            gray = np.array(image.convert("L"))
 
             # Apply threshold
             thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
@@ -270,7 +271,7 @@ class ImageEnhancer:
             Detected rotation angle in degrees
         """
         try:
-            gray = np.array(image.convert('L'))
+            gray = np.array(image.convert("L"))
             thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
             coords = np.column_stack(np.where(thresh > 0))
             angle = cv2.minAreaRect(coords)[-1]
@@ -284,11 +285,7 @@ class ImageEnhancer:
         except:
             return 0.0
 
-    def create_comparison(
-        self,
-        original: Image.Image,
-        enhanced: Image.Image
-    ) -> Image.Image:
+    def create_comparison(self, original: Image.Image, enhanced: Image.Image) -> Image.Image:
         """
         Create side-by-side comparison of original and enhanced images
 
@@ -314,7 +311,7 @@ class ImageEnhancer:
 
         # Create combined image
         total_width = original.width + enhanced.width + 20  # 20px gap
-        combined = Image.new('RGB', (total_width, max_height), color='white')
+        combined = Image.new("RGB", (total_width, max_height), color="white")
 
         # Paste images
         combined.paste(original, (0, 0))

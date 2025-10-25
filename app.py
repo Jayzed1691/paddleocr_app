@@ -3,46 +3,49 @@ PaddleOCR Streamlit Application
 Complete OCR solution for PDF, DOCX, and TXT files
 """
 
-import streamlit as st
-import tempfile
-import shutil
-import logging
-from pathlib import Path
-from typing import List, Optional, Dict, Any
-import time
 import hashlib
+import logging
+import shutil
+import tempfile
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ocr_engine import OCREngine
+import streamlit as st
+
+from config import (
+    DEVICE_OPTIONS,
+    LANGUAGE_OPTIONS,
+    MAX_FILE_SIZE_MB,
+    OCR_PRESETS,
+    OUTPUT_FORMATS,
+    PRECISION_OPTIONS,
+    SUPPORTED_FORMATS,
+    TEXTAREA_HEIGHT,
+)
 from document_processor import DocumentProcessor
 from logger_config import setup_logging
-from utils import validate_file, sanitize_filename, format_file_size
-from config import (
-    SUPPORTED_FORMATS,
-    LANGUAGE_OPTIONS,
-    OUTPUT_FORMATS,
-    DEVICE_OPTIONS,
-    PRECISION_OPTIONS,
-    MAX_FILE_SIZE_MB,
-    TEXTAREA_HEIGHT,
-    OCR_PRESETS
-)
+from ocr_engine import OCREngine
+from utils import format_file_size, sanitize_filename, validate_file
 
 # Setup logging
-setup_logging(log_level='INFO', console_output=False)  # Disable console to avoid Streamlit conflicts
+setup_logging(
+    log_level="INFO", console_output=False
+)  # Disable console to avoid Streamlit conflicts
 logger = logging.getLogger(__name__)
 
 
 def initialize_session_state():
     """Initialize Streamlit session state variables"""
-    if 'ocr_results' not in st.session_state:
+    if "ocr_results" not in st.session_state:
         st.session_state.ocr_results = None
-    if 'ocr_engine' not in st.session_state:
+    if "ocr_engine" not in st.session_state:
         st.session_state.ocr_engine = None
-    if 'processing_complete' not in st.session_state:
+    if "processing_complete" not in st.session_state:
         st.session_state.processing_complete = False
-    if 'file_metadata' not in st.session_state:
+    if "file_metadata" not in st.session_state:
         st.session_state.file_metadata = {}
-    if 'preview_images' not in st.session_state:
+    if "preview_images" not in st.session_state:
         st.session_state.preview_images = []
 
 
@@ -66,16 +69,16 @@ def create_sidebar():
         "Settings Preset",
         options=list(OCR_PRESETS.keys()),
         index=1,  # Default to "Balanced"
-        format_func=lambda x: OCR_PRESETS[x]['name'],
-        help="Choose a preset or use Custom for manual configuration"
+        format_func=lambda x: OCR_PRESETS[x]["name"],
+        help="Choose a preset or use Custom for manual configuration",
     )
 
     # Show preset description
-    preset_desc = OCR_PRESETS[preset_name]['description']
+    preset_desc = OCR_PRESETS[preset_name]["description"]
     st.sidebar.info(f"ℹ️ {preset_desc}")
 
     # Get preset config
-    preset_config = OCR_PRESETS[preset_name]['config']
+    preset_config = OCR_PRESETS[preset_name]["config"]
 
     # Language selection (always shown)
     st.sidebar.subheader("Language Settings")
@@ -83,17 +86,17 @@ def create_sidebar():
         "OCR Language",
         options=list(LANGUAGE_OPTIONS.keys()),
         format_func=lambda x: LANGUAGE_OPTIONS[x],
-        help="Select the language for OCR recognition"
+        help="Select the language for OCR recognition",
     )
 
     # Show detailed settings only for Custom preset
-    if preset_name == 'Custom':
+    if preset_name == "Custom":
         # Detection settings
         st.sidebar.subheader("Detection Settings")
         use_textline_orientation = st.sidebar.checkbox(
             "Enable Textline Orientation",
             value=True,
-            help="Detect and correct text line orientation"
+            help="Detect and correct text line orientation",
         )
 
         text_det_thresh = st.sidebar.slider(
@@ -102,7 +105,7 @@ def create_sidebar():
             max_value=0.9,
             value=0.3,
             step=0.05,
-            help="Threshold for text detection"
+            help="Threshold for text detection",
         )
 
         text_det_box_thresh = st.sidebar.slider(
@@ -111,7 +114,7 @@ def create_sidebar():
             max_value=0.9,
             value=0.6,
             step=0.05,
-            help="Threshold for bounding box filtering"
+            help="Threshold for bounding box filtering",
         )
 
         # Recognition settings
@@ -122,7 +125,7 @@ def create_sidebar():
             max_value=1.0,
             value=0.5,
             step=0.05,
-            help="Minimum confidence score for recognition results"
+            help="Minimum confidence score for recognition results",
         )
 
         text_recognition_batch_size = st.sidebar.number_input(
@@ -130,7 +133,7 @@ def create_sidebar():
             min_value=1,
             max_value=32,
             value=6,
-            help="Number of text lines to recognize in parallel"
+            help="Number of text lines to recognize in parallel",
         )
 
         # Advanced settings (collapsed by default)
@@ -138,36 +141,32 @@ def create_sidebar():
             use_doc_orientation_classify = st.checkbox(
                 "Enable Document Orientation Classification",
                 value=False,
-                help="Classify and correct document orientation"
+                help="Classify and correct document orientation",
             )
 
             use_doc_unwarping = st.checkbox(
-                "Enable Document Unwarping",
-                value=False,
-                help="Unwarp distorted document images"
+                "Enable Document Unwarping", value=False, help="Unwarp distorted document images"
             )
 
             return_word_box = st.checkbox(
-                "Return Word Boxes",
-                value=False,
-                help="Return bounding boxes for individual words"
+                "Return Word Boxes", value=False, help="Return bounding boxes for individual words"
             )
 
         # Build configuration from custom settings
         config = {
-            'lang': language,
-            'use_textline_orientation': use_textline_orientation,
-            'text_det_thresh': text_det_thresh,
-            'text_det_box_thresh': text_det_box_thresh,
-            'text_rec_score_thresh': text_rec_score_thresh,
-            'text_recognition_batch_size': text_recognition_batch_size,
-            'use_doc_orientation_classify': use_doc_orientation_classify,
-            'use_doc_unwarping': use_doc_unwarping,
-            'return_word_box': return_word_box
+            "lang": language,
+            "use_textline_orientation": use_textline_orientation,
+            "text_det_thresh": text_det_thresh,
+            "text_det_box_thresh": text_det_box_thresh,
+            "text_rec_score_thresh": text_rec_score_thresh,
+            "text_recognition_batch_size": text_recognition_batch_size,
+            "use_doc_orientation_classify": use_doc_orientation_classify,
+            "use_doc_unwarping": use_doc_unwarping,
+            "return_word_box": return_word_box,
         }
     else:
         # Use preset configuration
-        config = {'lang': language, **preset_config}
+        config = {"lang": language, **preset_config}
 
         # Show current settings in expandable section
         with st.sidebar.expander("📋 View Current Settings"):
@@ -224,7 +223,7 @@ def process_uploaded_files(uploaded_files: List, config: dict, temp_dir: Path):
         file_path = temp_dir / safe_filename
 
         # Validate file
-        with open(file_path, 'wb') as f:
+        with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
         is_valid, error_msg = validate_file(file_path, uploaded_file)
@@ -233,7 +232,9 @@ def process_uploaded_files(uploaded_files: List, config: dict, temp_dir: Path):
             st.error(f"❌ {uploaded_file.name}: {error_msg}")
             continue
 
-        status_text.markdown(f"**Processing file {file_idx + 1}/{total_files}:** `{uploaded_file.name}`")
+        status_text.markdown(
+            f"**Processing file {file_idx + 1}/{total_files}:** `{uploaded_file.name}`"
+        )
         detail_text.text(f"Size: {format_file_size(uploaded_file.size)}")
 
         # Convert document to images
@@ -273,13 +274,15 @@ def process_uploaded_files(uploaded_files: List, config: dict, temp_dir: Path):
 
             # Store metadata
             file_metadata[uploaded_file.name] = {
-                'size': uploaded_file.size,
-                'pages': num_pages,
-                'processing_time': time.time() - file_start_time,
-                'results_count': len(page_results)
+                "size": uploaded_file.size,
+                "pages": num_pages,
+                "processing_time": time.time() - file_start_time,
+                "results_count": len(page_results),
             }
 
-            logger.info(f"Successfully processed {uploaded_file.name} in {time.time() - file_start_time:.2f}s")
+            logger.info(
+                f"Successfully processed {uploaded_file.name} in {time.time() - file_start_time:.2f}s"
+            )
 
         except Exception as e:
             logger.error(f"Error processing {uploaded_file.name}: {e}", exc_info=True)
@@ -304,11 +307,7 @@ def process_uploaded_files(uploaded_files: List, config: dict, temp_dir: Path):
 def create_download_button(label: str, data: str, filename: str, mime_type: str):
     """Helper function to create download button"""
     st.download_button(
-        label=f"📥 {label}",
-        data=data,
-        file_name=filename,
-        mime=mime_type,
-        use_container_width=True
+        label=f"📥 {label}", data=data, file_name=filename, mime=mime_type, use_container_width=True
     )
 
 
@@ -322,11 +321,11 @@ def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Pages", stats['total_pages'])
+        st.metric("Total Pages", stats["total_pages"])
     with col2:
-        st.metric("Text Blocks", stats['total_text_blocks'])
+        st.metric("Text Blocks", stats["total_text_blocks"])
     with col3:
-        st.metric("Characters", stats['total_characters'])
+        st.metric("Characters", stats["total_characters"])
     with col4:
         st.metric("Avg Confidence", f"{stats['average_confidence']:.2%}")
 
@@ -354,7 +353,7 @@ def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str
             "display": lambda text: st.text_area("Markdown", text, height=TEXTAREA_HEIGHT),
             "filename": "ocr_results.md",
             "mime": "text/markdown",
-            "download_label": "Download Markdown"
+            "download_label": "Download Markdown",
         },
         "JSON": {
             "title": "JSON Output",
@@ -362,7 +361,7 @@ def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str
             "display": lambda text: st.json(text),
             "filename": "ocr_results.json",
             "mime": "application/json",
-            "download_label": "Download JSON"
+            "download_label": "Download JSON",
         },
         "Text": {
             "title": "Plain Text Output",
@@ -370,7 +369,7 @@ def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str
             "display": lambda text: st.text_area("Text", text, height=TEXTAREA_HEIGHT),
             "filename": "ocr_results.txt",
             "mime": "text/plain",
-            "download_label": "Download Text"
+            "download_label": "Download Text",
         },
         "HTML": {
             "title": "HTML Output",
@@ -378,23 +377,20 @@ def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str
             "display": lambda text: st.code(text, language="html"),
             "filename": "ocr_results.html",
             "mime": "text/html",
-            "download_label": "Download HTML"
-        }
+            "download_label": "Download HTML",
+        },
     }
 
     # Get configuration for selected format
     config = format_config.get(output_format)
     if config:
         st.markdown(f"### {config['title']}")
-        formatted_text = config['formatter']()
-        config['display'](formatted_text)
+        formatted_text = config["formatter"]()
+        config["display"](formatted_text)
 
         # Download button
         create_download_button(
-            config['download_label'],
-            formatted_text,
-            config['filename'],
-            config['mime']
+            config["download_label"], formatted_text, config["filename"], config["mime"]
         )
 
     # Detailed view
@@ -407,7 +403,7 @@ def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str
                 for block in structured_data:
                     col1, col2 = st.columns([4, 1])
                     with col1:
-                        st.text(block['text'])
+                        st.text(block["text"])
                     with col2:
                         st.caption(f"Conf: {block['confidence']:.2%}")
             else:
@@ -418,27 +414,27 @@ def display_results(ocr_results: List, ocr_engine: OCREngine, output_format: str
 
 def main():
     """Main application function"""
-    
+
     # Page configuration
     st.set_page_config(
         page_title="PaddleOCR Application",
         page_icon="📄",
         layout="wide",
-        initial_sidebar_state="expanded"
+        initial_sidebar_state="expanded",
     )
-    
+
     # Initialize session state
     initialize_session_state()
-    
+
     # Header
     st.title("📄 PaddleOCR Document Processing")
     st.markdown(
         "Upload PDF, DOCX, TXT, or image files for OCR processing with PaddleOCR's complete feature suite."
     )
-    
+
     # Sidebar configuration
     config = create_sidebar()
-    
+
     # Main content area
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -451,9 +447,9 @@ def main():
     # File uploader
     uploaded_files = st.file_uploader(
         "Choose files to process",
-        type=[ext.lstrip('.') for ext in SUPPORTED_FORMATS.keys()],  # Remove dots for Streamlit
+        type=[ext.lstrip(".") for ext in SUPPORTED_FORMATS.keys()],  # Remove dots for Streamlit
         accept_multiple_files=True,
-        help=f"Supported formats: {', '.join(SUPPORTED_FORMATS.values())} | Max size: {MAX_FILE_SIZE_MB}MB per file"
+        help=f"Supported formats: {', '.join(SUPPORTED_FORMATS.values())} | Max size: {MAX_FILE_SIZE_MB}MB per file",
     )
 
     # Show file preview if files are uploaded
@@ -467,15 +463,13 @@ def main():
                     st.text(format_file_size(uploaded_file.size))
                 with col3:
                     extension = Path(uploaded_file.name).suffix.lower()
-                    st.text(SUPPORTED_FORMATS.get(extension, 'Unknown'))
+                    st.text(SUPPORTED_FORMATS.get(extension, "Unknown"))
 
     # Output format and process button
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
         output_format = st.selectbox(
-            "Output Format",
-            options=OUTPUT_FORMATS,
-            help="Select the format for OCR results"
+            "Output Format", options=OUTPUT_FORMATS, help="Select the format for OCR results"
         )
     with col2:
         st.write("")  # Spacing
@@ -492,9 +486,7 @@ def main():
         try:
             # Process files
             start_time = time.time()
-            ocr_results, file_metadata = process_uploaded_files(
-                uploaded_files, config, temp_dir
-            )
+            ocr_results, file_metadata = process_uploaded_files(uploaded_files, config, temp_dir)
             processing_time = time.time() - start_time
 
             # Store results in session state
@@ -528,17 +520,17 @@ def main():
     # Show image preview if available
     if st.session_state.preview_images:
         with st.expander("🖼️ Preview (First Page)", expanded=False):
-            st.image(st.session_state.preview_images[0], caption="First page preview", use_container_width=False)
+            st.image(
+                st.session_state.preview_images[0],
+                caption="First page preview",
+                use_container_width=False,
+            )
 
     # Display results if available
     if st.session_state.processing_complete and st.session_state.ocr_results:
         st.divider()
-        display_results(
-            st.session_state.ocr_results,
-            st.session_state.ocr_engine,
-            output_format
-        )
-    
+        display_results(st.session_state.ocr_results, st.session_state.ocr_engine, output_format)
+
     # Footer
     st.divider()
     st.markdown(
@@ -548,10 +540,9 @@ def main():
         Built with <a href='https://streamlit.io' target='_blank'>Streamlit</a></p>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 
 if __name__ == "__main__":
     main()
-

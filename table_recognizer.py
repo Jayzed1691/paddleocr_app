@@ -5,10 +5,11 @@ Uses PaddleOCR's table recognition capabilities
 """
 
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+import cv2
 import numpy as np
 from PIL import Image
-import cv2
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class TableRecognizer:
     Advanced table detection and extraction using PaddleOCR
     """
 
-    def __init__(self, lang: str = 'en'):
+    def __init__(self, lang: str = "en"):
         """
         Initialize table recognizer
 
@@ -34,12 +35,7 @@ class TableRecognizer:
         try:
             from paddleocr import PPStructure
 
-            self.table_engine = PPStructure(
-                table=True,
-                ocr=True,
-                show_log=False,
-                lang=self.lang
-            )
+            self.table_engine = PPStructure(table=True, ocr=True, show_log=False, lang=self.lang)
             logger.info("Table recognition engine initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize table engine: {e}")
@@ -47,9 +43,7 @@ class TableRecognizer:
             self.table_engine = None
 
     def detect_tables(
-        self,
-        image: Image.Image,
-        conf_threshold: float = 0.5
+        self, image: Image.Image, conf_threshold: float = 0.5
     ) -> List[Dict[str, Any]]:
         """
         Detect tables in an image
@@ -75,25 +69,27 @@ class TableRecognizer:
             # Filter and process tables
             tables = []
             for item in result:
-                if item['type'] == 'table' and item.get('score', 0) >= conf_threshold:
+                if item["type"] == "table" and item.get("score", 0) >= conf_threshold:
                     # Parse full table structure including grid
                     table_data = self._parse_table_structure(item)
 
                     # Only include if parsing was successful
-                    if 'error' not in table_data:
+                    if "error" not in table_data:
                         tables.append(table_data)
                     else:
                         # Fallback to basic structure without grid
-                        logger.warning(f"Could not parse table structure, using basic data: {table_data.get('error')}")
+                        logger.warning(
+                            f"Could not parse table structure, using basic data: {table_data.get('error')}"
+                        )
                         table_data = {
-                            'bbox': item['bbox'],
-                            'confidence': item.get('score', 0.0),
-                            'type': 'table',
-                            'html': item.get('res', {}).get('html', ''),
-                            'cells': self._extract_cells(item),
-                            'rows': self._count_rows(item),
-                            'columns': self._count_columns(item),
-                            'grid': []  # Empty grid as fallback
+                            "bbox": item["bbox"],
+                            "confidence": item.get("score", 0.0),
+                            "type": "table",
+                            "html": item.get("res", {}).get("html", ""),
+                            "cells": self._extract_cells(item),
+                            "rows": self._count_rows(item),
+                            "columns": self._count_columns(item),
+                            "grid": [],  # Empty grid as fallback
                         }
                         tables.append(table_data)
 
@@ -105,9 +101,7 @@ class TableRecognizer:
             return []
 
     def extract_table_structure(
-        self,
-        image: Image.Image,
-        table_bbox: Optional[List[int]] = None
+        self, image: Image.Image, table_bbox: Optional[List[int]] = None
     ) -> Dict[str, Any]:
         """
         Extract structured data from a table region
@@ -120,7 +114,7 @@ class TableRecognizer:
             Structured table data with cells, rows, columns
         """
         if self.table_engine is None:
-            return {'error': 'Table engine not initialized'}
+            return {"error": "Table engine not initialized"}
 
         try:
             # Crop to table region if bbox provided
@@ -136,38 +130,40 @@ class TableRecognizer:
 
             # Extract structure
             for item in result:
-                if item['type'] == 'table':
+                if item["type"] == "table":
                     return self._parse_table_structure(item)
 
-            return {'error': 'No table found in region'}
+            return {"error": "No table found in region"}
 
         except Exception as e:
             logger.error(f"Error extracting table structure: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}
 
     def _extract_cells(self, table_item: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract individual cell data from table"""
         cells = []
 
         try:
-            res = table_item.get('res', {})
+            res = table_item.get("res", {})
 
             # Try to extract from HTML
-            html = res.get('html', '')
+            html = res.get("html", "")
             if html:
                 cells = self._parse_html_cells(html)
 
             # Alternative: extract from cell boxes
-            elif 'cell_bbox' in res:
-                for cell in res['cell_bbox']:
-                    cells.append({
-                        'bbox': cell.get('bbox', []),
-                        'text': cell.get('text', ''),
-                        'row': cell.get('row', 0),
-                        'col': cell.get('col', 0),
-                        'row_span': cell.get('row_span', 1),
-                        'col_span': cell.get('col_span', 1)
-                    })
+            elif "cell_bbox" in res:
+                for cell in res["cell_bbox"]:
+                    cells.append(
+                        {
+                            "bbox": cell.get("bbox", []),
+                            "text": cell.get("text", ""),
+                            "row": cell.get("row", 0),
+                            "col": cell.get("col", 0),
+                            "row_span": cell.get("row_span", 1),
+                            "col_span": cell.get("col_span", 1),
+                        }
+                    )
 
         except Exception as e:
             logger.debug(f"Error extracting cells: {e}")
@@ -181,20 +177,22 @@ class TableRecognizer:
         try:
             from bs4 import BeautifulSoup
 
-            soup = BeautifulSoup(html, 'html.parser')
-            table = soup.find('table')
+            soup = BeautifulSoup(html, "html.parser")
+            table = soup.find("table")
 
             if table:
-                for row_idx, row in enumerate(table.find_all('tr')):
-                    for col_idx, cell in enumerate(row.find_all(['td', 'th'])):
-                        cells.append({
-                            'text': cell.get_text(strip=True),
-                            'row': row_idx,
-                            'col': col_idx,
-                            'row_span': int(cell.get('rowspan', 1)),
-                            'col_span': int(cell.get('colspan', 1)),
-                            'is_header': cell.name == 'th'
-                        })
+                for row_idx, row in enumerate(table.find_all("tr")):
+                    for col_idx, cell in enumerate(row.find_all(["td", "th"])):
+                        cells.append(
+                            {
+                                "text": cell.get_text(strip=True),
+                                "row": row_idx,
+                                "col": col_idx,
+                                "row_span": int(cell.get("rowspan", 1)),
+                                "col_span": int(cell.get("colspan", 1)),
+                                "is_header": cell.name == "th",
+                            }
+                        )
 
         except ImportError:
             logger.warning("BeautifulSoup not available for HTML parsing")
@@ -208,7 +206,7 @@ class TableRecognizer:
         try:
             cells = self._extract_cells(table_item)
             if cells:
-                return max(cell['row'] for cell in cells) + 1
+                return max(cell["row"] for cell in cells) + 1
             return 0
         except:
             return 0
@@ -218,7 +216,7 @@ class TableRecognizer:
         try:
             cells = self._extract_cells(table_item)
             if cells:
-                return max(cell['col'] for cell in cells) + 1
+                return max(cell["col"] for cell in cells) + 1
             return 0
         except:
             return 0
@@ -229,29 +227,26 @@ class TableRecognizer:
 
         # Create 2D grid
         if cells:
-            max_row = max(cell['row'] for cell in cells) + 1
-            max_col = max(cell['col'] for cell in cells) + 1
+            max_row = max(cell["row"] for cell in cells) + 1
+            max_col = max(cell["col"] for cell in cells) + 1
 
-            grid = [['' for _ in range(max_col)] for _ in range(max_row)]
+            grid = [["" for _ in range(max_col)] for _ in range(max_row)]
 
             for cell in cells:
-                row, col = cell['row'], cell['col']
-                grid[row][col] = cell['text']
+                row, col = cell["row"], cell["col"]
+                grid[row][col] = cell["text"]
 
             return {
-                'rows': max_row,
-                'columns': max_col,
-                'cells': cells,
-                'grid': grid,
-                'html': table_item.get('res', {}).get('html', ''),
-                'bbox': table_item.get('bbox', []),
-                'confidence': table_item.get('score', 0.0)
+                "rows": max_row,
+                "columns": max_col,
+                "cells": cells,
+                "grid": grid,
+                "html": table_item.get("res", {}).get("html", ""),
+                "bbox": table_item.get("bbox", []),
+                "confidence": table_item.get("score", 0.0),
             }
 
-        return {
-            'error': 'Could not parse table structure',
-            'raw': table_item
-        }
+        return {"error": "Could not parse table structure", "raw": table_item}
 
     def convert_to_dataframe(self, table_data: Dict[str, Any]):
         """
@@ -266,7 +261,7 @@ class TableRecognizer:
         try:
             import pandas as pd
 
-            grid = table_data.get('grid', [])
+            grid = table_data.get("grid", [])
             if not grid:
                 return None
 
@@ -291,7 +286,7 @@ class TableRecognizer:
         self,
         tables: List[Dict[str, Any]],
         output_path: str,
-        sheet_names: Optional[List[str]] = None
+        sheet_names: Optional[List[str]] = None,
     ) -> bool:
         """
         Export tables to Excel file
@@ -307,13 +302,14 @@ class TableRecognizer:
         try:
             import pandas as pd
 
-            with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
                 for idx, table in enumerate(tables):
                     df = self.convert_to_dataframe(table)
                     if df is not None:
                         sheet_name = (
-                            sheet_names[idx] if sheet_names and idx < len(sheet_names)
-                            else f'Table_{idx + 1}'
+                            sheet_names[idx]
+                            if sheet_names and idx < len(sheet_names)
+                            else f"Table_{idx + 1}"
                         )
                         df.to_excel(writer, sheet_name=sheet_name, index=False)
 
@@ -324,11 +320,7 @@ class TableRecognizer:
             logger.error(f"Error exporting to Excel: {e}")
             return False
 
-    def export_to_csv(
-        self,
-        table_data: Dict[str, Any],
-        output_path: str
-    ) -> bool:
+    def export_to_csv(self, table_data: Dict[str, Any], output_path: str) -> bool:
         """
         Export single table to CSV
 
@@ -355,9 +347,7 @@ class TableRecognizer:
             return False
 
     def visualize_table_detection(
-        self,
-        image: Image.Image,
-        tables: List[Dict[str, Any]]
+        self, image: Image.Image, tables: List[Dict[str, Any]]
     ) -> Image.Image:
         """
         Draw bounding boxes around detected tables
@@ -372,8 +362,8 @@ class TableRecognizer:
         img_array = np.array(image.copy())
 
         for idx, table in enumerate(tables):
-            bbox = table['bbox']
-            confidence = table['confidence']
+            bbox = table["bbox"]
+            confidence = table["confidence"]
 
             # Draw rectangle
             x1, y1, x2, y2 = map(int, bbox)
@@ -384,15 +374,7 @@ class TableRecognizer:
 
             # Add label
             label = f"Table {idx + 1} ({confidence:.2f})"
-            cv2.putText(
-                img_array,
-                label,
-                (x1, y1 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                color,
-                2
-            )
+            cv2.putText(img_array, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
         return Image.fromarray(img_array)
 
@@ -408,23 +390,25 @@ class TableRecognizer:
         """
         if not tables:
             return {
-                'total_tables': 0,
-                'total_cells': 0,
-                'avg_rows': 0,
-                'avg_columns': 0,
-                'avg_confidence': 0.0
+                "total_tables": 0,
+                "total_cells": 0,
+                "avg_rows": 0,
+                "avg_columns": 0,
+                "avg_confidence": 0.0,
             }
 
-        total_cells = sum(len(t.get('cells', [])) for t in tables)
-        total_rows = sum(t.get('rows', 0) for t in tables)
-        total_cols = sum(t.get('columns', 0) for t in tables)
-        total_conf = sum(t.get('confidence', 0) for t in tables)
+        total_cells = sum(len(t.get("cells", [])) for t in tables)
+        total_rows = sum(t.get("rows", 0) for t in tables)
+        total_cols = sum(t.get("columns", 0) for t in tables)
+        total_conf = sum(t.get("confidence", 0) for t in tables)
 
         return {
-            'total_tables': len(tables),
-            'total_cells': total_cells,
-            'avg_rows': total_rows / len(tables) if tables else 0,
-            'avg_columns': total_cols / len(tables) if tables else 0,
-            'avg_confidence': total_conf / len(tables) if tables else 0,
-            'largest_table': max((t.get('rows', 0) * t.get('columns', 0) for t in tables), default=0)
+            "total_tables": len(tables),
+            "total_cells": total_cells,
+            "avg_rows": total_rows / len(tables) if tables else 0,
+            "avg_columns": total_cols / len(tables) if tables else 0,
+            "avg_confidence": total_conf / len(tables) if tables else 0,
+            "largest_table": max(
+                (t.get("rows", 0) * t.get("columns", 0) for t in tables), default=0
+            ),
         }

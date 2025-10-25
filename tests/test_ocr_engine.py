@@ -2,17 +2,19 @@
 Tests for OCR engine
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
+
 import numpy as np
+import pytest
 from PIL import Image
+
 from ocr_engine import OCREngine
 
 
 class TestOCREngine:
     """Tests for OCREngine class"""
 
-    @patch('ocr_engine.PaddleOCR')
+    @patch("ocr_engine.PaddleOCR")
     def test_init_default_config(self, mock_paddle):
         """Test initialization with default configuration"""
         engine = OCREngine()
@@ -21,35 +23,35 @@ class TestOCREngine:
         assert engine.ocr is not None
         mock_paddle.assert_called_once()
 
-    @patch('ocr_engine.PaddleOCR')
+    @patch("ocr_engine.PaddleOCR")
     def test_init_custom_config(self, mock_paddle):
         """Test initialization with custom configuration"""
-        config = {'lang': 'ch', 'use_angle_cls': False}
+        config = {"lang": "ch", "use_angle_cls": False}
         engine = OCREngine(config)
 
         assert engine.config == config
         mock_paddle.assert_called_once()
 
-    @patch('ocr_engine.PaddleOCR')
+    @patch("ocr_engine.PaddleOCR")
     def test_update_config_no_reinit(self, mock_paddle):
         """Test updating config without reinitialization"""
-        engine = OCREngine({'lang': 'en'})
+        engine = OCREngine({"lang": "en"})
         initial_call_count = mock_paddle.call_count
 
         # Update non-critical parameter
-        engine.update_config({'text_det_thresh': 0.5})
+        engine.update_config({"text_det_thresh": 0.5})
 
         # Should not reinitialize
         assert mock_paddle.call_count == initial_call_count
 
-    @patch('ocr_engine.PaddleOCR')
+    @patch("ocr_engine.PaddleOCR")
     def test_update_config_with_reinit(self, mock_paddle):
         """Test updating config requiring reinitialization"""
-        engine = OCREngine({'lang': 'en'})
+        engine = OCREngine({"lang": "en"})
         initial_call_count = mock_paddle.call_count
 
         # Update critical parameter
-        engine.update_config({'lang': 'ch'})
+        engine.update_config({"lang": "ch"})
 
         # Should reinitialize
         assert mock_paddle.call_count > initial_call_count
@@ -81,9 +83,9 @@ class TestOCREngine:
         structured = engine.extract_structured_data(mock_ocr_result)
 
         assert len(structured) == 2
-        assert structured[0]['text'] == 'Test text'
-        assert structured[0]['confidence'] == 0.95
-        assert 'bbox' in structured[0]
+        assert structured[0]["text"] == "Test text"
+        assert structured[0]["confidence"] == 0.95
+        assert "bbox" in structured[0]
 
     def test_extract_structured_data_empty(self, empty_ocr_result):
         """Test structured data extraction from empty result"""
@@ -132,9 +134,9 @@ class TestOCREngine:
 
         html = engine.format_as_html([mock_ocr_result])
 
-        assert '<!DOCTYPE html>' in html
-        assert 'Test text' in html
-        assert 'Page 1' in html
+        assert "<!DOCTYPE html>" in html
+        assert "Test text" in html
+        assert "Page 1" in html
 
     def test_get_statistics(self, mock_ocr_result):
         """Test statistics computation"""
@@ -143,10 +145,10 @@ class TestOCREngine:
 
         stats = engine.get_statistics([mock_ocr_result])
 
-        assert stats['total_pages'] == 1
-        assert stats['total_text_blocks'] == 2
-        assert stats['total_characters'] > 0
-        assert 0 <= stats['average_confidence'] <= 1
+        assert stats["total_pages"] == 1
+        assert stats["total_text_blocks"] == 2
+        assert stats["total_characters"] > 0
+        assert 0 <= stats["average_confidence"] <= 1
 
     def test_get_statistics_empty(self, empty_ocr_result):
         """Test statistics from empty result"""
@@ -155,12 +157,12 @@ class TestOCREngine:
 
         stats = engine.get_statistics([empty_ocr_result])
 
-        assert stats['total_pages'] == 1
-        assert stats['total_text_blocks'] == 0
-        assert stats['total_characters'] == 0
-        assert stats['average_confidence'] == 0.0
+        assert stats["total_pages"] == 1
+        assert stats["total_text_blocks"] == 0
+        assert stats["total_characters"] == 0
+        assert stats["average_confidence"] == 0.0
 
-    @patch('ocr_engine.PaddleOCR')
+    @patch("ocr_engine.PaddleOCR")
     def test_process_image_pil(self, mock_paddle):
         """Test processing PIL Image"""
         mock_ocr_instance = Mock()
@@ -168,14 +170,14 @@ class TestOCREngine:
         mock_paddle.return_value = mock_ocr_instance
 
         engine = OCREngine()
-        img = Image.new('RGB', (100, 100))
+        img = Image.new("RGB", (100, 100))
 
         result = engine.process_image(img)
 
         assert result is not None
         mock_ocr_instance.ocr.assert_called_once()
 
-    @patch('ocr_engine.PaddleOCR')
+    @patch("ocr_engine.PaddleOCR")
     def test_process_image_numpy(self, mock_paddle):
         """Test processing numpy array"""
         mock_ocr_instance = Mock()
@@ -190,7 +192,7 @@ class TestOCREngine:
         assert result is not None
         mock_ocr_instance.ocr.assert_called_once()
 
-    @patch('ocr_engine.PaddleOCR')
+    @patch("ocr_engine.PaddleOCR")
     def test_process_image_invalid_type(self, mock_paddle):
         """Test processing invalid image type raises error"""
         engine = OCREngine()
@@ -198,7 +200,7 @@ class TestOCREngine:
         with pytest.raises(ValueError, match="Unsupported image type"):
             engine.process_image("not an image")
 
-    @patch('ocr_engine.PaddleOCR')
+    @patch("ocr_engine.PaddleOCR")
     def test_process_images_batch(self, mock_paddle):
         """Test batch processing of images"""
         mock_ocr_instance = Mock()
@@ -206,10 +208,7 @@ class TestOCREngine:
         mock_paddle.return_value = mock_ocr_instance
 
         engine = OCREngine()
-        images = [
-            Image.new('RGB', (100, 100)),
-            Image.new('RGB', (100, 100))
-        ]
+        images = [Image.new("RGB", (100, 100)), Image.new("RGB", (100, 100))]
 
         results = engine.process_images(images)
 
